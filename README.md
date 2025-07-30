@@ -5,21 +5,25 @@ SwipeFeedは、直感的なスワイプ操作でRSSフィードを読むこと�
 ## 機能
 
 ### 🎯 メイン機能
+
 - **スワイプ操作**: 右スワイプで既読、左スワイプでブックマーク
 - **フルスクリーン表示**: 1記事ずつ集中して読める
 - **スムーズアニメーション**: react-native-reanimatedによる滑らかな操作
 
 ### 📡 フィード管理
+
 - RSS/Atomフィードの追加・削除
 - 複数フィードの統合表示
 - 自動更新機能
 
 ### 🔖 ブックマーク
+
 - スワイプでブックマーク
 - ブックマーク一覧表示
 - ワンタップでブックマーク解除
 
 ### ⚙️ 設定
+
 - ダーク/ライトテーマ
 - フォントサイズ調整
 - スワイプ感度調整
@@ -39,7 +43,7 @@ SwipeFeedは、直感的なスワイプ操作でRSSフィードを読むこと�
 
 ## プロジェクト構成
 
-```
+```text
 src/
 ├── types/
 │   └── index.ts              # TypeScript型定義
@@ -67,6 +71,7 @@ src/
 ## セットアップ
 
 ### 前提条件
+
 - Node.js (v16以上)
 - Expo CLI
 - iOS Simulator / Android Emulator または実機
@@ -74,16 +79,19 @@ src/
 ### インストール
 
 1. 依存関係のインストール
+
 ```bash
 npm install
 ```
 
-2. アプリの起動
+1. アプリの起動
+
 ```bash
 npm start
 ```
 
-3. iOS/Androidでの実行
+1. iOS/Androidでの実行
+
 ```bash
 npm run ios
 npm run android
@@ -92,16 +100,19 @@ npm run android
 ## 使い方
 
 ### 初回セットアップ
+
 1. アプリを起動
 2. 「Feeds」タブでRSSフィードを追加
 3. 「Swipe」タブで記事を読み始める
 
 ### スワイプ操作
+
 - **右スワイプ (→)**: 記事を既読にして次へ
 - **左スワイプ (←)**: 記事をブックマークして次へ
 
 ### フィード追加例
-```
+
+```text
 https://feeds.feedburner.com/TechCrunch
 https://www.wired.com/feed/rss
 https://feeds.bbci.co.uk/news/rss.xml
@@ -110,20 +121,25 @@ https://feeds.bbci.co.uk/news/rss.xml
 ## 主要コンポーネント
 
 ### SwipeGesture
+
 PanGestureHandlerを使用したスワイプ検出とアニメーション制御
 
 ### ArticleCard
+
 記事コンテンツの表示とスクロール機能
 
 ### DatabaseService
+
 SQLiteでの記事とフィードのCRUD操作
 
 ### RSSService
+
 RSS/Atomフィードの取得と解析
 
 ## カスタマイズ
 
 ### スワイプ設定の調整
+
 ```typescript
 // src/utils/swipeUtils.ts
 export const SWIPE_CONFIG = {
@@ -134,6 +150,7 @@ export const SWIPE_CONFIG = {
 ```
 
 ### テーマのカスタマイズ
+
 ```typescript
 // src/context/AppContext.tsx
 const customTheme: Theme = {
@@ -152,12 +169,14 @@ MIT License
 ## 開発者向け情報
 
 ### デバッグ
+
 ```bash
 npm run lint        # ESLintチェック
 npm run typecheck   # TypeScriptチェック
 ```
 
 ### ビルド
+
 ```bash
 npm run build       # プロダクションビルド
 eas build --platform ios     # iOS用ビルド
