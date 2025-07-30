@@ -1,12 +1,21 @@
-import * as SQLite from 'expo-sqlite';
+import SQLite from 'react-native-sqlite-storage';
 import { Feed, Article } from '@/types';
 
+// Enable debugging (remove in production)
+SQLite.DEBUG(true);
+SQLite.enablePromise(true);
+
 class DatabaseServiceClass {
-  private db: SQLite.WebSQLDatabase | null = null;
+  private db: SQLite.SQLiteDatabase | null = null;
 
   async initialize(): Promise<void> {
     try {
-      this.db = SQLite.openDatabase('swipefeed.db');
+      this.db = await SQLite.openDatabase(
+        {
+          name: 'swipefeed.db',
+          location: 'default',
+        }
+      );
       await this.createTables();
     } catch (error) {
       console.error('Failed to initialize database:', error);
@@ -14,135 +23,115 @@ class DatabaseServiceClass {
     }
   }
 
-  private createTables(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        reject(new Error('Database not initialized'));
-        return;
-      }
+  private async createTables(): Promise<void> {
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
 
-      this.db.transaction(
-        (tx) => {
-          // Create feeds table
-          tx.executeSql(`
-            CREATE TABLE IF NOT EXISTS feeds (
-              id TEXT PRIMARY KEY,
-              title TEXT NOT NULL,
-              url TEXT UNIQUE NOT NULL,
-              description TEXT,
-              last_updated INTEGER,
-              unread_count INTEGER DEFAULT 0,
-              is_active INTEGER DEFAULT 1
-            );
-          `);
+    try {
+      // Create feeds table
+      await this.db.executeSql(`
+        CREATE TABLE IF NOT EXISTS feeds (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          url TEXT UNIQUE NOT NULL,
+          description TEXT,
+          last_updated INTEGER,
+          unread_count INTEGER DEFAULT 0,
+          is_active INTEGER DEFAULT 1
+        );
+      `);
 
-          // Create articles table
-          tx.executeSql(`
-            CREATE TABLE IF NOT EXISTS articles (
-              id TEXT PRIMARY KEY,
-              feed_id TEXT,
-              title TEXT NOT NULL,
-              description TEXT,
-              content TEXT,
-              link TEXT,
-              image_url TEXT,
-              pub_date INTEGER,
-              is_read INTEGER DEFAULT 0,
-              is_bookmarked INTEGER DEFAULT 0,
-              is_skipped INTEGER DEFAULT 0,
-              FOREIGN KEY (feed_id) REFERENCES feeds (id)
-            );
-          `);
+      // Create articles table
+      await this.db.executeSql(`
+        CREATE TABLE IF NOT EXISTS articles (
+          id TEXT PRIMARY KEY,
+          feed_id TEXT,
+          title TEXT NOT NULL,
+          description TEXT,
+          content TEXT,
+          link TEXT,
+          image_url TEXT,
+          pub_date INTEGER,
+          is_read INTEGER DEFAULT 0,
+          is_bookmarked INTEGER DEFAULT 0,
+          is_skipped INTEGER DEFAULT 0,
+          FOREIGN KEY (feed_id) REFERENCES feeds (id)
+        );
+      `);
 
-          // Create indexes for better performance
-          tx.executeSql(`
-            CREATE INDEX IF NOT EXISTS idx_articles_feed_id ON articles (feed_id);
-          `);
-          
-          tx.executeSql(`
-            CREATE INDEX IF NOT EXISTS idx_articles_pub_date ON articles (pub_date DESC);
-          `);
-          
-          tx.executeSql(`
-            CREATE INDEX IF NOT EXISTS idx_articles_unread ON articles (is_read, is_skipped);
-          `);
-        },
-        (error) => {
-          console.error('Transaction error:', error);
-          reject(error);
-        },
-        () => {
-          resolve();
-        }
-      );
-    });
+      // Create indexes for better performance
+      await this.db.executeSql(`
+        CREATE INDEX IF NOT EXISTS idx_articles_feed_id ON articles (feed_id);
+      `);
+      
+      await this.db.executeSql(`
+        CREATE INDEX IF NOT EXISTS idx_articles_pub_date ON articles (pub_date DESC);
+      `);
+      
+      await this.db.executeSql(`
+        CREATE INDEX IF NOT EXISTS idx_articles_unread ON articles (is_read, is_skipped);
+      `);
+    } catch (error) {
+      console.error('Failed to create tables:', error);
+      throw error;
+    }
   }
 
   // Feed operations
   async saveFeed(feed: Feed): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        reject(new Error('Database not initialized'));
-        return;
-      }
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
 
-      this.db.transaction(
-        (tx) => {
-          tx.executeSql(
-            `INSERT OR REPLACE INTO feeds 
-             (id, title, url, description, last_updated, unread_count, is_active) 
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [
-              feed.id,
-              feed.title,
-              feed.url,
-              feed.description || null,
-              feed.lastUpdated.getTime(),
-              feed.unreadCount,
-              feed.isActive ? 1 : 0,
-            ]
-          );
-        },
-        (error) => reject(error),
-        () => resolve()
+    try {
+      await this.db.executeSql(
+        `INSERT OR REPLACE INTO feeds 
+         (id, title, url, description, last_updated, unread_count, is_active) 
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          feed.id,
+          feed.title,
+          feed.url,
+          feed.description || null,
+          feed.lastUpdated.getTime(),
+          feed.unreadCount,
+          feed.isActive ? 1 : 0,
+        ]
       );
-    });
+    } catch (error) {
+      console.error('Failed to save feed:', error);
+      throw error;
+    }
   }
 
   async getFeeds(): Promise<Feed[]> {
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        reject(new Error('Database not initialized'));
-        return;
-      }
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
 
-      this.db.transaction((tx) => {
-        tx.executeSql(
-          'SELECT * FROM feeds ORDER BY title',
-          [],
-          (_, { rows }) => {
-            const feeds: Feed[] = [];
-            for (let i = 0; i < rows.length; i++) {
-              const row = rows.item(i);
-              feeds.push({
-                id: row.id,
-                title: row.title,
-                url: row.url,
-                description: row.description,
-                lastUpdated: new Date(row.last_updated),
-                unreadCount: row.unread_count,
-                isActive: row.is_active === 1,
-              });
-            }
-            resolve(feeds);
-          },
-          (_, error) => {
-            reject(error);
-            return false;
-          }
-        );
-      });
-    });
+    try {
+      const [results] = await this.db.executeSql('SELECT * FROM feeds ORDER BY title');
+      const feeds: Feed[] = [];
+      
+      for (let i = 0; i < results.rows.length; i++) {
+        const row = results.rows.item(i);
+        feeds.push({
+          id: row.id,
+          title: row.title,
+          url: row.url,
+          description: row.description,
+          lastUpdated: new Date(row.last_updated),
+          unreadCount: row.unread_count,
+          isActive: row.is_active === 1,
+        });
+      }
+      
+      return feeds;
+    } catch (error) {
+      console.error('Failed to get feeds:', error);
+      throw error;
+    }
   }
 
   async deleteFeed(feedId: string): Promise<void> {
