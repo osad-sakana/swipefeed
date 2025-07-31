@@ -15,7 +15,11 @@
       "Bash(brew list:*)",
       "Bash(brew install:*)",
       "Bash(npm run typecheck:*)",
-      "Bash(npm start)"
+      "Bash(npm start)",
+      "Bash(npm cache clean:*)",
+      "Bash(rmdir:*)",
+      "Bash(del package-lock.json)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }
