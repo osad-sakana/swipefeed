@@ -1,5 +1,5 @@
 import { Dimensions } from 'react-native';
-import { SwipeAction, SwipeGestureState } from '@/types';
+import { SwipeAction } from '@/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -108,7 +108,7 @@ export function getActionText(direction: 'left' | 'right'): string {
 
 export function shouldShowActionHint(translateX: number): {
   showHint: boolean;
-  direction?: 'left' | 'right';
+  direction?: 'left' | 'right' | undefined;
   progress: number;
 } {
   const progress = calculateSwipeProgress(translateX);

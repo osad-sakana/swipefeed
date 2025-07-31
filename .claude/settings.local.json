@@ -9,7 +9,13 @@
       "Bash(npx markdownlint:*)",
       "Bash(npx expo install:*)",
       "Bash(npm uninstall:*)",
-      "Bash(npx expo start:*)"
+      "Bash(npx expo start:*)",
+      "Bash(watchman:*)",
+      "Bash(ls:*)",
+      "Bash(brew list:*)",
+      "Bash(brew install:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm start)"
     ],
     "deny": []
   }

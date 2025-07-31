@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { EmptyState } from '@/components/EmptyState';
 import { useAppContext } from '@/context/AppContext';
-import { Article, Feed } from '@/types';
+import { Article } from '@/types';
 import { DatabaseService } from '@/services/DatabaseService';
 import { formatDate } from '@/utils/dateUtils';
 

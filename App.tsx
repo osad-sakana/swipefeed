@@ -69,14 +69,16 @@ function AppNavigator(): JSX.Element {
           name="Swipe" 
           component={SwipeScreen}
           options={{
-            tabBarBadge: state.unreadArticles.length > 0 ? state.unreadArticles.length : undefined,
-            tabBarBadgeStyle: {
-              backgroundColor: theme.colors.error,
-              color: '#FFFFFF',
-              fontSize: 10,
-              minWidth: 16,
-              height: 16,
-            },
+            ...(state.unreadArticles.length > 0 && {
+              tabBarBadge: state.unreadArticles.length,
+              tabBarBadgeStyle: {
+                backgroundColor: theme.colors.error,
+                color: '#FFFFFF',
+                fontSize: 10,
+                minWidth: 16,
+                height: 16,
+              },
+            }),
           }}
         />
         <Tab.Screen 
@@ -90,16 +92,16 @@ function AppNavigator(): JSX.Element {
           name="Bookmarks" 
           component={BookmarksScreen}
           options={{
-            tabBarBadge: state.articles.filter(a => a.isBookmarked).length > 0 
-              ? state.articles.filter(a => a.isBookmarked).length 
-              : undefined,
-            tabBarBadgeStyle: {
-              backgroundColor: theme.colors.warning,
-              color: '#FFFFFF',
-              fontSize: 10,
-              minWidth: 16,
-              height: 16,
-            },
+            ...(state.articles.filter(a => a.isBookmarked).length > 0 && {
+              tabBarBadge: state.articles.filter(a => a.isBookmarked).length,
+              tabBarBadgeStyle: {
+                backgroundColor: theme.colors.warning,
+                color: '#FFFFFF',
+                fontSize: 10,
+                minWidth: 16,
+                height: 16,
+              },
+            }),
           }}
         />
         <Tab.Screen 

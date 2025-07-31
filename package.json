@@ -40,6 +40,7 @@
     "@babel/core": "^7.20.0",
     "@types/react": "~18.2.14",
     "@types/react-native": "~0.72.2",
+    "@types/react-native-sqlite-storage": "^6.0.5",
     "@typescript-eslint/eslint-plugin": "^6.12.0",
     "@typescript-eslint/parser": "^6.12.0",
     "babel-plugin-module-resolver": "^5.0.0",
@@ -53,8 +54,6 @@
   },
   "private": true,
   "expo": {
-    "plugins": [
-      "expo-sqlite"
-    ]
+    "plugins": []
   }
 }

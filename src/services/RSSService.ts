@@ -1,5 +1,4 @@
 import Parser from 'rss-parser';
-import axios from 'axios';
 import { Feed, Article } from '@/types';
 import { DatabaseService } from './DatabaseService';
 
@@ -75,10 +74,10 @@ class RSSServiceClass {
           feedId: feed.id,
           title: this.cleanText(item.title),
           description: this.cleanText(item.contentSnippet || item.content || ''),
-          content: item.content,
+          content: item.content || undefined,
           link: item.link,
           pubDate: this.parseDate(item.pubDate || item.isoDate),
-          imageUrl: this.extractImageUrl(item),
+          imageUrl: this.extractImageUrl(item) || undefined,
           isRead: false,
           isBookmarked: false,
           isSkipped: false,
@@ -107,7 +106,7 @@ class RSSServiceClass {
         id: feedId,
         title: validation.title || 'Untitled Feed',
         url: this.normalizeUrl(url),
-        description: validation.description,
+        description: validation.description || undefined,
         lastUpdated: new Date(),
         unreadCount: 0,
         isActive: true,

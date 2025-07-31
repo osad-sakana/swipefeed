@@ -11,15 +11,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppContext } from '@/context/AppContext';
-import { Settings } from '@/types';
 import { StorageService } from '@/services/StorageService';
 import { DatabaseService } from '@/services/DatabaseService';
 
-interface SettingsScreenProps {
-  navigation: any;
-}
 
-export function SettingsScreen({ navigation }: SettingsScreenProps): JSX.Element {
+export function SettingsScreen(): JSX.Element {
   const { settings, theme, updateSettings } = useAppContext();
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [showFontSizeModal, setShowFontSizeModal] = useState(false);
@@ -93,7 +89,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps): JSX.Element
 
   const handleExportData = async (): Promise<void> => {
     try {
-      const data = await StorageService.exportData();
+      await StorageService.exportData();
       // In a real app, you would use a file picker or share sheet
       Alert.alert('Export Data', 'Data exported successfully (feature not fully implemented in demo)');
     } catch (error) {

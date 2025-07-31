@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   View, 
   Text, 
@@ -17,11 +17,8 @@ import { useAppContext } from '@/context/AppContext';
 import { Feed } from '@/types';
 import { RSSService } from '@/services/RSSService';
 
-interface FeedManagerScreenProps {
-  navigation: any;
-}
 
-export function FeedManagerScreen({ navigation }: FeedManagerScreenProps): JSX.Element {
+export function FeedManagerScreen(): JSX.Element {
   const { state, theme, addFeed, removeFeed, refreshFeeds } = useAppContext();
   const [showAddModal, setShowAddModal] = useState(false);
   const [feedUrl, setFeedUrl] = useState('');

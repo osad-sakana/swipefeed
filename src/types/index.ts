@@ -2,7 +2,7 @@ export interface Feed {
   id: string;
   title: string;
   url: string;
-  description?: string;
+  description?: string | undefined;
   lastUpdated: Date;
   unreadCount: number;
   isActive: boolean;
@@ -13,10 +13,10 @@ export interface Article {
   feedId: string;
   title: string;
   description: string;
-  content?: string;
+  content?: string | undefined;
   link: string;
   pubDate: Date;
-  imageUrl?: string;
+  imageUrl?: string | undefined;
   isRead: boolean;
   isBookmarked: boolean;
   isSkipped: boolean;

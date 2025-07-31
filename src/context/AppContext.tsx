@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
-import { AppState, AppAction, Feed, Article, Settings, Theme } from '@/types';
+import { AppState, AppAction, Settings, Theme } from '@/types';
 import { DatabaseService } from '@/services/DatabaseService';
 import { StorageService } from '@/services/StorageService';
 import { RSSService } from '@/services/RSSService';

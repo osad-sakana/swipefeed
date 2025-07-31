@@ -4,15 +4,15 @@ import { Article, Feed } from '@/types';
 import { useAppContext } from '@/context/AppContext';
 import { formatDate } from '@/utils/dateUtils';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface ArticleCardProps {
   article: Article;
-  feed?: Feed;
+  feed?: Feed | undefined;
   onPress?: () => void;
 }
 
-export function ArticleCard({ article, feed, onPress }: ArticleCardProps): JSX.Element {
+export function ArticleCard({ article, feed }: ArticleCardProps): JSX.Element {
   const { theme, settings } = useAppContext();
 
   const handleLinkPress = async (): Promise<void> => {
@@ -45,7 +45,7 @@ export function ArticleCard({ article, feed, onPress }: ArticleCardProps): JSX.E
     }
   };
 
-  const styles = createStyles(theme, settings.showImages, getFontSize(), getTitleFontSize());
+  const styles = createStyles(theme, getFontSize(), getTitleFontSize());
 
   return (
     <View style={styles.container}>
@@ -117,7 +117,7 @@ export function ArticleCard({ article, feed, onPress }: ArticleCardProps): JSX.E
   );
 }
 
-function createStyles(theme: any, showImages: boolean, fontSize: number, titleFontSize: number) {
+function createStyles(theme: any, fontSize: number, titleFontSize: number) {
   return StyleSheet.create({
     container: {
       flex: 1,
