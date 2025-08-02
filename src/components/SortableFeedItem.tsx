@@ -32,18 +32,17 @@ export const SortableFeedItem: React.FC<SortableFeedItemProps> = ({
   };
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-    >
+    <div ref={setNodeRef} style={style}>
       <FeedListItem
         feed={feed}
         onToggleActive={onToggleActive}
         onEdit={onEdit}
         onDelete={onDelete}
         isDragging={isDragging}
+        dragHandleProps={{
+          ...attributes,
+          ...listeners,
+        }}
       />
     </div>
   );

@@ -47,7 +47,11 @@ export function FeedManagerScreen(): JSX.Element {
   });
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 8px移動でドラッグ開始
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })

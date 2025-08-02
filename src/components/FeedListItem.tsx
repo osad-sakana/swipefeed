@@ -18,6 +18,7 @@ import {
   DialogActions,
   Button,
   TextField,
+  Tooltip,
 } from '@mui/material';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -36,6 +37,7 @@ interface FeedListItemProps {
   onEdit: (feed: Feed) => void;
   onDelete: (feedId: string) => void;
   isDragging?: boolean;
+  dragHandleProps?: Record<string, any>;
 }
 
 export const FeedListItem: React.FC<FeedListItemProps> = ({
@@ -44,6 +46,7 @@ export const FeedListItem: React.FC<FeedListItemProps> = ({
   onEdit,
   onDelete,
   isDragging = false,
+  dragHandleProps,
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -105,17 +108,28 @@ export const FeedListItem: React.FC<FeedListItemProps> = ({
         <CardContent sx={{ padding: 2, '&:last-child': { paddingBottom: 2 } }}>
           <Box display="flex" alignItems="center" gap={1}>
             {/* Drag Handle */}
-            <Box
-              sx={{
-                cursor: 'grab',
-                color: 'text.secondary',
-                display: 'flex',
-                alignItems: 'center',
-                '&:active': { cursor: 'grabbing' },
-              }}
-            >
-              <FontAwesomeIcon icon={faGripVertical} />
-            </Box>
+            <Tooltip title="ドラッグして並び替え" placement="left">
+              <Box
+                {...dragHandleProps}
+                sx={{
+                  cursor: isDragging ? 'grabbing' : 'grab',
+                  color: 'text.secondary',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '8px 4px',
+                  marginRight: 1,
+                  borderRadius: 1,
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    backgroundColor: 'action.hover',
+                    color: 'text.primary',
+                  },
+                  '&:active': { cursor: 'grabbing' },
+                }}
+              >
+                <FontAwesomeIcon icon={faGripVertical} />
+              </Box>
+            </Tooltip>
 
             {/* Feed Info */}
             <Box sx={{ flex: 1, minWidth: 0 }}>
