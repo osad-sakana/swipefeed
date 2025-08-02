@@ -19,7 +19,12 @@
       "Bash(npm cache clean:*)",
       "Bash(rmdir:*)",
       "Bash(del package-lock.json)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(npx create-expo-app:*)",
+      "Bash(node:*)",
+      "Bash(nvm list:*)",
+      "Bash(nvm install:*)",
+      "Bash(nvm use:*)"
     ],
     "deny": []
   }
