@@ -55,6 +55,17 @@ export function SwipeScreen(): JSX.Element {
     loadFeeds();
   }, [state.feeds]);
 
+  useEffect(() => {
+    console.log('SwipeScreen state updated:', {
+      feeds: state.feeds.length,
+      articles: state.articles.length,
+      unreadArticles: state.unreadArticles.length,
+      currentIndex: state.currentArticleIndex,
+      isLoading: state.isLoading,
+      error: state.error
+    });
+  }, [state]);
+
   const loadFeeds = (): void => {
     setFeeds(state.feeds);
   };
@@ -85,8 +96,11 @@ export function SwipeScreen(): JSX.Element {
     
     setIsRefreshing(true);
     try {
+      console.log('Refreshing feeds...', { feedCount: state.feeds.length, articleCount: state.articles.length });
       await refreshFeeds();
+      console.log('Refresh completed');
     } catch (error) {
+      console.error('Refresh failed:', error);
       alert('フィードの更新に失敗しました。インターネット接続を確認してください。');
     } finally {
       setIsRefreshing(false);
@@ -122,7 +136,7 @@ export function SwipeScreen(): JSX.Element {
       return (
         <EmptyState
           title="RSSフィードがありません"
-          message="最初のRSSフィードを追加して記事の読み始めましょう。右にスワイプで既読、左にスワイプでブックマークできます。"
+          message="最初のRSSフィードを追加して記事の読み始めましょう。左にスワイプで既読、右にスワイプでブックマークできます。"
           buttonText="フィードを追加"
           onButtonPress={handleAddFeed}
           icon="📡"
@@ -146,8 +160,8 @@ export function SwipeScreen(): JSX.Element {
       return (
         <EmptyState
           title="記事がありません"
-          message="表示する記事がありません。"
-          buttonText="更新"
+          message="フィードから記事を取得できませんでした。フィードを更新してみてください。"
+          buttonText="フィードを更新"
           onButtonPress={handleRefresh}
           icon="📰"
         />
@@ -155,15 +169,12 @@ export function SwipeScreen(): JSX.Element {
     }
 
     return (
-      <SwipeGesture
-        onSwipeAction={handleSwipeAction}
-        disabled={isRefreshing}
-      >
-        <ArticleCard
-          article={currentArticle}
-          feed={currentFeed}
-        />
-      </SwipeGesture>
+      <ArticleCard
+        article={currentArticle}
+        feed={currentFeed}
+        onMarkAsRead={() => handleSwipeAction({ type: 'read', direction: 'left', threshold: 0 })}
+        onBookmark={() => handleSwipeAction({ type: 'bookmark', direction: 'right', threshold: 0 })}
+      />
     );
   };
 

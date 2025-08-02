@@ -1,4 +1,4 @@
-import React, { ReactNode, useState } from 'react';
+import React, { ReactNode, useState, useRef } from 'react';
 import { motion, PanInfo, useMotionValue } from 'framer-motion';
 import styled from 'styled-components';
 import { SwipeAction } from '@/types';
@@ -24,6 +24,7 @@ export function SwipeGesture({
   const x = useMotionValue(0);
   const [leftOpacity, setLeftOpacity] = useState(0);
   const [rightOpacity, setRightOpacity] = useState(0);
+  const actionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const handlePan = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (disabled) return;
@@ -51,36 +52,45 @@ export function SwipeGesture({
     
     const action = getSwipeAction(adjustedTranslateX, adjustedVelocity);
     
-    // Reset opacity
+    // Clear any existing timeout
+    if (actionTimeoutRef.current) {
+      clearTimeout(actionTimeoutRef.current);
+    }
+    
+    // Always reset to center position
+    x.set(0);
+    
+    // Reset opacity immediately
     setLeftOpacity(0);
     setRightOpacity(0);
     
     if (action) {
+      // Execute action for next article
       onSwipeAction(action);
     }
   };
 
   return (
     <Container>
-      {/* Left swipe background (bookmark) */}
+      {/* Left swipe background (read) */}
       <SwipeBackground 
         style={{ opacity: leftOpacity }}
-        color={theme.colors.warning}
+        color={theme.colors.success}
         align="right"
       >
         <ActionContent>
-          📖
+          ✓
         </ActionContent>
       </SwipeBackground>
 
-      {/* Right swipe background (read) */}
+      {/* Right swipe background (bookmark) */}
       <SwipeBackground 
         style={{ opacity: rightOpacity }}
-        color={theme.colors.success}
+        color={theme.colors.warning}
         align="left"
       >
         <ActionContent>
-          ✓
+          📖
         </ActionContent>
       </SwipeBackground>
 
@@ -98,7 +108,7 @@ export function SwipeGesture({
           cursor: disabled ? 'default' : 'grab'
         }}
         whileDrag={{ cursor: 'grabbing' }}
-        animate={{ x: 0 }}
+        initial={{ x: 0 }}
       >
         {children}
       </motion.div>

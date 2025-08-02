@@ -218,7 +218,12 @@ class RSSServiceClass {
       const descEl = item.querySelector('description');
       const pubDateEl = item.querySelector('pubDate');
       const guidEl = item.querySelector('guid');
-      const contentEl = item.querySelector('content\\:encoded, encoded');
+      
+      // Try multiple content selectors for full content
+      const contentEl = item.querySelector('content\\:encoded') || 
+                       item.querySelector('encoded') ||
+                       item.querySelector('content') ||
+                       item.querySelector('summary');
       
       // Extract image from enclosure or media:thumbnail
       const enclosureEl = item.querySelector('enclosure[type^="image"]');
@@ -232,11 +237,15 @@ class RSSServiceClass {
       }
       
       if (titleEl?.textContent && linkEl?.textContent) {
+        // Get content, fallback to description if content is not available
+        const fullContent = contentEl?.textContent || descEl?.textContent || '';
+        const description = descEl?.textContent || '';
+        
         items.push({
           title: titleEl.textContent,
           link: linkEl.textContent,
-          description: descEl?.textContent || '',
-          content: contentEl?.textContent || '',
+          description: description,
+          content: fullContent,
           pubDate: pubDateEl?.textContent || '',
           guid: guidEl?.textContent || '',
           imageUrl: imageUrl || undefined,
@@ -269,11 +278,15 @@ class RSSServiceClass {
       const href = linkEl?.getAttribute('href');
       
       if (titleEl?.textContent && href) {
+        // Get content, fallback to summary if content is not available
+        const fullContent = contentEl?.textContent || summaryEl?.textContent || '';
+        const description = summaryEl?.textContent || '';
+        
         items.push({
           title: titleEl.textContent,
           link: href,
-          description: summaryEl?.textContent || '',
-          content: contentEl?.textContent || '',
+          description: description,
+          content: fullContent,
           pubDate: publishedEl?.textContent || updatedEl?.textContent || '',
           guid: idEl?.textContent || '',
         });

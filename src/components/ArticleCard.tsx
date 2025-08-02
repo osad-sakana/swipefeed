@@ -10,13 +10,42 @@ interface ArticleCardProps {
   article: Article;
   feed?: Feed | undefined;
   onPress?: () => void;
+  onMarkAsRead?: () => void;
+  onBookmark?: () => void;
 }
 
-export function ArticleCard({ article, feed }: ArticleCardProps): JSX.Element {
+export function ArticleCard({ article, feed, onMarkAsRead, onBookmark }: ArticleCardProps): JSX.Element {
   const { theme, settings } = useAppContext();
 
   const handleLinkPress = (): void => {
     window.open(article.link, '_blank');
+  };
+
+  const sanitizeHTML = (html: string): string => {
+    // Basic HTML sanitization
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    
+    // Remove potentially dangerous elements
+    const dangerousTags = ['script', 'iframe', 'object', 'embed', 'form'];
+    dangerousTags.forEach(tag => {
+      const elements = tempDiv.querySelectorAll(tag);
+      elements.forEach(el => el.remove());
+    });
+    
+    // Clean up attributes
+    const elements = tempDiv.querySelectorAll('*');
+    elements.forEach(el => {
+      const attrs = el.attributes;
+      for (let i = attrs.length - 1; i >= 0; i--) {
+        const attrName = attrs[i].name.toLowerCase();
+        if (attrName.startsWith('on') || attrName === 'javascript:') {
+          el.removeAttribute(attrName);
+        }
+      }
+    });
+    
+    return tempDiv.innerHTML;
   };
 
   const getFontSize = () => {
@@ -49,6 +78,17 @@ export function ArticleCard({ article, feed }: ArticleCardProps): JSX.Element {
           overflowY: 'auto',
           padding: 2,
           minHeight: 'calc(100vh - 100px)',
+          scrollBehavior: 'smooth',
+          '&::-webkit-scrollbar': {
+            width: '4px',
+          },
+          '&::-webkit-scrollbar-track': {
+            background: 'transparent',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: 'rgba(0,0,0,0.2)',
+            borderRadius: '4px',
+          },
         }}
       >
         {/* Header */}
@@ -74,8 +114,9 @@ export function ArticleCard({ article, feed }: ArticleCardProps): JSX.Element {
           </Typography>
         </Box>
 
-        {/* Image */}
-        {settings.showImages && article.imageUrl && (
+        {/* Featured Image - only show if not already in content */}
+        {settings.showImages && article.imageUrl && 
+         !(article.content && article.content.includes(article.imageUrl)) && (
           <Box
             sx={{
               marginBottom: 2,
@@ -110,16 +151,96 @@ export function ArticleCard({ article, feed }: ArticleCardProps): JSX.Element {
           {article.title}
         </Typography>
 
-        {/* Description/Content */}
-        <Typography
-          variant={getFontSize()}
+        {/* Content/Description */}
+        <Box
           sx={{
             lineHeight: 1.6,
             marginBottom: 3,
+            '& p': { marginBottom: 1 },
+            '& img': { maxWidth: '100%', height: 'auto' },
+            '& a': { color: 'primary.main' },
           }}
         >
-          {article.description}
-        </Typography>
+          {article.content && article.content.trim() ? (
+            <Box
+              component="div"
+              sx={{
+                fontSize: getFontSize() === 'body2' ? '0.875rem' : '1rem',
+                '& p': { marginBottom: 1.5 },
+                '& h1, & h2, & h3, & h4, & h5, & h6': { 
+                  marginTop: 2, 
+                  marginBottom: 1.5,
+                  fontWeight: 'bold'
+                },
+                '& ul, & ol': { paddingLeft: 2, marginBottom: 1.5 },
+                '& li': { marginBottom: 0.5 },
+                '& blockquote': { 
+                  paddingLeft: 2, 
+                  borderLeft: '4px solid',
+                  borderColor: 'divider',
+                  marginY: 1.5,
+                  fontStyle: 'italic'
+                },
+                '& pre': { 
+                  backgroundColor: 'grey.100', 
+                  padding: 1, 
+                  borderRadius: 1,
+                  overflow: 'auto'
+                },
+                '& code': { 
+                  backgroundColor: 'grey.100', 
+                  padding: '2px 4px',
+                  borderRadius: 0.5,
+                  fontSize: '0.875em'
+                }
+              }}
+              dangerouslySetInnerHTML={{ 
+                __html: sanitizeHTML(article.content)
+              }} 
+            />
+          ) : article.description ? (
+            <Box
+              component="div"
+              sx={{
+                fontSize: getFontSize() === 'body2' ? '0.875rem' : '1rem',
+                '& p': { marginBottom: 1.5 },
+                '& h1, & h2, & h3, & h4, & h5, & h6': { 
+                  marginTop: 2, 
+                  marginBottom: 1.5,
+                  fontWeight: 'bold'
+                },
+                '& ul, & ol': { paddingLeft: 2, marginBottom: 1.5 },
+                '& li': { marginBottom: 0.5 },
+                '& blockquote': { 
+                  paddingLeft: 2, 
+                  borderLeft: '4px solid',
+                  borderColor: 'divider',
+                  marginY: 1.5,
+                  fontStyle: 'italic'
+                },
+                '& pre': { 
+                  backgroundColor: 'grey.100', 
+                  padding: 1, 
+                  borderRadius: 1,
+                  overflow: 'auto'
+                },
+                '& code': { 
+                  backgroundColor: 'grey.100', 
+                  padding: '2px 4px',
+                  borderRadius: 0.5,
+                  fontSize: '0.875em'
+                }
+              }}
+              dangerouslySetInnerHTML={{ 
+                __html: sanitizeHTML(article.description)
+              }} 
+            />
+          ) : (
+            <Typography variant={getFontSize()} color="text.secondary">
+              コンテンツが利用できません
+            </Typography>
+          )}
+        </Box>
 
         {/* Footer */}
         <Box
@@ -128,6 +249,9 @@ export function ArticleCard({ article, feed }: ArticleCardProps): JSX.Element {
             paddingTop: 2.5,
             borderTop: 1,
             borderColor: 'divider',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
           }}
         >
           <Button
@@ -143,6 +267,52 @@ export function ArticleCard({ article, feed }: ArticleCardProps): JSX.Element {
           >
             記事を読む
           </Button>
+
+          {/* Action buttons */}
+          {(onMarkAsRead || onBookmark) && (
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: 1.5,
+              }}
+            >
+              {onBookmark && (
+                <Button
+                  variant="outlined"
+                  startIcon={<FontAwesomeIcon icon={faBookmark} />}
+                  onClick={onBookmark}
+                  sx={{
+                    borderColor: 'warning.main',
+                    color: 'warning.main',
+                    '&:hover': {
+                      borderColor: 'warning.dark',
+                      backgroundColor: 'warning.light',
+                    },
+                  }}
+                >
+                  ブックマーク
+                </Button>
+              )}
+              {onMarkAsRead && (
+                <Button
+                  variant="outlined"
+                  startIcon={<FontAwesomeIcon icon={faCheck} />}
+                  onClick={onMarkAsRead}
+                  sx={{
+                    borderColor: 'success.main',
+                    color: 'success.main',
+                    '&:hover': {
+                      borderColor: 'success.dark',
+                      backgroundColor: 'success.light',
+                    },
+                  }}
+                >
+                  既読
+                </Button>
+              )}
+            </Box>
+          )}
         </Box>
 
         <Box sx={{ height: '60px' }} />
@@ -170,13 +340,13 @@ export function ArticleCard({ article, feed }: ArticleCardProps): JSX.Element {
             flexDirection: 'column',
             alignItems: 'center',
             minWidth: '80px',
-            backgroundColor: 'warning.main',
+            backgroundColor: 'success.main',
             transform: 'translateX(-100px)',
           }}
         >
-          <FontAwesomeIcon icon={faBookmark} size="lg" style={{ marginBottom: '4px', color: '#fff' }} />
+          <FontAwesomeIcon icon={faCheck} size="lg" style={{ marginBottom: '4px', color: '#fff' }} />
           <Typography variant="caption" sx={{ fontWeight: 600, color: '#fff' }}>
-            ブックマーク
+            既読
           </Typography>
         </Card>
         <Card
@@ -187,13 +357,13 @@ export function ArticleCard({ article, feed }: ArticleCardProps): JSX.Element {
             flexDirection: 'column',
             alignItems: 'center',
             minWidth: '80px',
-            backgroundColor: 'success.main',
+            backgroundColor: 'warning.main',
             transform: 'translateX(100px)',
           }}
         >
-          <FontAwesomeIcon icon={faCheck} size="lg" style={{ marginBottom: '4px', color: '#fff' }} />
+          <FontAwesomeIcon icon={faBookmark} size="lg" style={{ marginBottom: '4px', color: '#fff' }} />
           <Typography variant="caption" sx={{ fontWeight: 600, color: '#fff' }}>
-            既読
+            ブックマーク
           </Typography>
         </Card>
       </Box>

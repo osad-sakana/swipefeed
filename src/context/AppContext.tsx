@@ -233,6 +233,18 @@ export function AppProvider({ children }: AppProviderProps): JSX.Element {
       const articles = await DatabaseService.getArticles();
       dispatch({ type: 'SET_ARTICLES', payload: articles });
       
+      // If we have feeds but no articles, try to fetch articles
+      if (feeds.length > 0 && articles.length === 0) {
+        console.log('Found feeds but no articles, attempting to fetch...');
+        try {
+          await RSSService.refreshAllFeeds();
+          const refreshedArticles = await DatabaseService.getArticles();
+          dispatch({ type: 'SET_ARTICLES', payload: refreshedArticles });
+        } catch (refreshError) {
+          console.warn('Failed to refresh feeds during initialization:', refreshError);
+        }
+      }
+      
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: error instanceof Error ? error.message : 'Failed to initialize app' });
     } finally {

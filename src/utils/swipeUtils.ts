@@ -17,12 +17,12 @@ export const SWIPE_CONFIG = {
 
 export const SWIPE_ACTIONS: Record<'left' | 'right', SwipeAction> = {
   left: {
-    type: 'bookmark',
+    type: 'read',
     direction: 'left',
     threshold: -SWIPE_CONFIG.THRESHOLD,
   },
   right: {
-    type: 'read',
+    type: 'bookmark',
     direction: 'right',
     threshold: SWIPE_CONFIG.THRESHOLD,
   },
@@ -74,10 +74,10 @@ export function calculateSwipeTransform(translateX: number): {
 
 export function getActionColor(direction: 'left' | 'right', theme: any): string {
   switch (direction) {
-    case 'left': // bookmark
-      return theme.colors.warning;
-    case 'right': // read
+    case 'left': // read
       return theme.colors.success;
+    case 'right': // bookmark
+      return theme.colors.warning;
     default:
       return theme.colors.border;
   }
@@ -85,10 +85,10 @@ export function getActionColor(direction: 'left' | 'right', theme: any): string 
 
 export function getActionIcon(direction: 'left' | 'right'): string {
   switch (direction) {
-    case 'left': // bookmark
-      return 'bookmark';
-    case 'right': // read
+    case 'left': // read
       return 'check';
+    case 'right': // bookmark
+      return 'bookmark';
     default:
       return 'help';
   }
@@ -96,10 +96,10 @@ export function getActionIcon(direction: 'left' | 'right'): string {
 
 export function getActionText(direction: 'left' | 'right'): string {
   switch (direction) {
-    case 'left': // bookmark
-      return 'Bookmark';
-    case 'right': // read
-      return 'Mark as Read';
+    case 'left': // read
+      return '既読にする';
+    case 'right': // bookmark
+      return 'ブックマーク';
     default:
       return '';
   }
