@@ -1,78 +1,64 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import styled from 'styled-components';
-
-const Container = styled.div`
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-`;
-
-const Main = styled.main`
-  flex: 1;
-  overflow: hidden;
-`;
-
-const Navigation = styled.nav`
-  display: flex;
-  background: #fff;
-  border-top: 1px solid #e0e0e0;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-`;
-
-const NavItem = styled(NavLink)`
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 12px 8px;
-  text-decoration: none;
-  color: #666;
-  font-size: 12px;
-  transition: color 0.2s;
-
-  &.active {
-    color: #007AFF;
-  }
-
-  &:hover {
-    color: #007AFF;
-  }
-`;
-
-const NavIcon = styled.div`
-  font-size: 24px;
-  margin-bottom: 4px;
-`;
+import { Box, BottomNavigation, BottomNavigationAction } from '@mui/material';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faSwatchbook, faRss, faBookmark, faCog } from '@fortawesome/free-solid-svg-icons';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
+  const [value, setValue] = React.useState(0);
+
   return (
-    <Container>
-      <Main>{children}</Main>
-      <Navigation>
-        <NavItem to="/swipe">
-          <NavIcon>📱</NavIcon>
-          スワイプ
-        </NavItem>
-        <NavItem to="/feeds">
-          <NavIcon>🔗</NavIcon>
-          フィード
-        </NavItem>
-        <NavItem to="/bookmarks">
-          <NavIcon>📖</NavIcon>
-          ブックマーク
-        </NavItem>
-        <NavItem to="/settings">
-          <NavIcon>⚙️</NavIcon>
-          設定
-        </NavItem>
-      </Navigation>
-    </Container>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+      }}
+    >
+      <Box component="main" sx={{ flex: 1, overflow: 'hidden' }}>
+        {children}
+      </Box>
+      <BottomNavigation
+        value={value}
+        onChange={(event, newValue) => {
+          setValue(newValue);
+        }}
+        sx={{
+          borderTop: 1,
+          borderColor: 'divider',
+          boxShadow: '0 -2px 10px rgba(0, 0, 0, 0.1)',
+        }}
+      >
+        <BottomNavigationAction
+          component={NavLink}
+          to="/swipe"
+          label="スワイプ"
+          icon={<FontAwesomeIcon icon={faSwatchbook} />}
+        />
+        <BottomNavigationAction
+          component={NavLink}
+          to="/feeds"
+          label="フィード"
+          icon={<FontAwesomeIcon icon={faRss} />}
+        />
+        <BottomNavigationAction
+          component={NavLink}
+          to="/bookmarks"
+          label="ブックマーク"
+          icon={<FontAwesomeIcon icon={faBookmark} />}
+        />
+        <BottomNavigationAction
+          component={NavLink}
+          to="/settings"
+          label="設定"
+          icon={<FontAwesomeIcon icon={faCog} />}
+        />
+      </BottomNavigation>
+    </Box>
   );
 };
 

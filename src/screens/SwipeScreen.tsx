@@ -76,7 +76,7 @@ export function SwipeScreen(): JSX.Element {
       nextArticle();
       
     } catch (error) {
-      alert('Failed to perform action. Please try again.');
+      alert('操作に失敗しました。もう一度お試しください。');
     }
   };
 
@@ -87,7 +87,7 @@ export function SwipeScreen(): JSX.Element {
     try {
       await refreshFeeds();
     } catch (error) {
-      alert('Unable to refresh feeds. Please check your internet connection.');
+      alert('フィードの更新に失敗しました。インターネット接続を確認してください。');
     } finally {
       setIsRefreshing(false);
     }
@@ -109,9 +109,9 @@ export function SwipeScreen(): JSX.Element {
     if (state.error) {
       return (
         <EmptyState
-          title="Something went wrong"
+          title="エラーが発生しました"
           message={state.error}
-          buttonText="Try Again"
+          buttonText="再試行"
           onButtonPress={handleRefresh}
           icon="⚠️"
         />
@@ -121,9 +121,9 @@ export function SwipeScreen(): JSX.Element {
     if (state.feeds.length === 0) {
       return (
         <EmptyState
-          title="No RSS Feeds"
-          message="Add your first RSS feed to start reading articles. Swipe right to mark as read, swipe left to bookmark."
-          buttonText="Add Feed"
+          title="RSSフィードがありません"
+          message="最初のRSSフィードを追加して記事の読み始めましょう。右にスワイプで既読、左にスワイプでブックマークできます。"
+          buttonText="フィードを追加"
           onButtonPress={handleAddFeed}
           icon="📡"
         />
@@ -133,9 +133,9 @@ export function SwipeScreen(): JSX.Element {
     if (state.unreadArticles.length === 0) {
       return (
         <EmptyState
-          title="All Caught Up!"
-          message="You've read all available articles. Pull down to refresh or add more feeds to discover new content."
-          buttonText="Refresh"
+          title="すべて読み終わりました！"
+          message="すべての記事を読み終わりました。更新するか、新しいフィードを追加してください。"
+          buttonText="更新"
           onButtonPress={handleRefresh}
           icon="🎉"
         />
@@ -145,9 +145,9 @@ export function SwipeScreen(): JSX.Element {
     if (!currentArticle) {
       return (
         <EmptyState
-          title="No Articles"
-          message="No articles available to display."
-          buttonText="Refresh"
+          title="記事がありません"
+          message="表示する記事がありません。"
+          buttonText="更新"
           onButtonPress={handleRefresh}
           icon="📰"
         />
@@ -182,7 +182,7 @@ export function SwipeScreen(): JSX.Element {
           </ProgressBar>
           <ProgressText>
             <ProgressLabel theme={theme}>
-              {state.currentArticleIndex + 1} of {state.unreadArticles.length}
+              {state.currentArticleIndex + 1} / {state.unreadArticles.length}
             </ProgressLabel>
           </ProgressText>
         </ProgressContainer>
