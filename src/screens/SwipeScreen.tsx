@@ -1,17 +1,41 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import styled from 'styled-components';
 import { SwipeGesture } from '@/components/SwipeGesture';
 import { ArticleCard } from '@/components/ArticleCard';
 import { EmptyState } from '@/components/EmptyState';
 import { useAppContext } from '@/context/AppContext';
 import { SwipeAction, Feed } from '@/types';
 
-interface SwipeScreenProps {
-  navigation: any;
-}
+const Container = styled.div`
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: ${props => props.theme?.colors?.background || '#ffffff'};
+`;
 
-export function SwipeScreen({ navigation }: SwipeScreenProps): JSX.Element {
+const Content = styled.div`
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+`;
+
+const LoadingSpinner = styled.div`
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #007AFF;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`;
+
+export function SwipeScreen(): JSX.Element {
   const { 
     state, 
     theme, 
@@ -52,11 +76,7 @@ export function SwipeScreen({ navigation }: SwipeScreenProps): JSX.Element {
       nextArticle();
       
     } catch (error) {
-      Alert.alert(
-        'Error',
-        'Failed to perform action. Please try again.',
-        [{ text: 'OK' }]
-      );
+      alert('Failed to perform action. Please try again.');
     }
   };
 
@@ -67,26 +87,22 @@ export function SwipeScreen({ navigation }: SwipeScreenProps): JSX.Element {
     try {
       await refreshFeeds();
     } catch (error) {
-      Alert.alert(
-        'Refresh Failed',
-        'Unable to refresh feeds. Please check your internet connection.',
-        [{ text: 'OK' }]
-      );
+      alert('Unable to refresh feeds. Please check your internet connection.');
     } finally {
       setIsRefreshing(false);
     }
   };
 
   const handleAddFeed = (): void => {
-    navigation.navigate('FeedManager');
+    window.location.href = '/feeds';
   };
 
   const renderContent = (): JSX.Element => {
     if (state.isLoading) {
       return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-        </View>
+        <Content>
+          <LoadingSpinner />
+        </Content>
       );
     }
 
@@ -142,7 +158,6 @@ export function SwipeScreen({ navigation }: SwipeScreenProps): JSX.Element {
       <SwipeGesture
         onSwipeAction={handleSwipeAction}
         disabled={isRefreshing}
-        style={styles.swipeContainer}
       >
         <ArticleCard
           article={currentArticle}
@@ -153,71 +168,58 @@ export function SwipeScreen({ navigation }: SwipeScreenProps): JSX.Element {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <Container theme={theme}>
       {renderContent()}
       
       {/* Progress indicator */}
       {state.unreadArticles.length > 0 && (
-        <View style={[styles.progressContainer, { backgroundColor: theme.colors.surface }]}>
-          <View 
-            style={[
-              styles.progressBar,
-              { backgroundColor: theme.colors.border }
-            ]}
-          >
-            <View 
-              style={[
-                styles.progressFill,
-                { 
-                  backgroundColor: theme.colors.primary,
-                  width: `${((state.currentArticleIndex + 1) / state.unreadArticles.length) * 100}%`
-                }
-              ]}
+        <ProgressContainer theme={theme}>
+          <ProgressBar theme={theme}>
+            <ProgressFill 
+              theme={theme}
+              progress={((state.currentArticleIndex + 1) / state.unreadArticles.length) * 100}
             />
-          </View>
-          <View style={styles.progressText}>
-            <Text style={[styles.progressLabel, { color: theme.colors.textSecondary }]}>
+          </ProgressBar>
+          <ProgressText>
+            <ProgressLabel theme={theme}>
               {state.currentArticleIndex + 1} of {state.unreadArticles.length}
-            </Text>
-          </View>
-        </View>
+            </ProgressLabel>
+          </ProgressText>
+        </ProgressContainer>
       )}
-    </SafeAreaView>
+    </Container>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  swipeContainer: {
-    flex: 1,
-  },
-  progressContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.1)',
-  },
-  progressBar: {
-    height: 4,
-    borderRadius: 2,
-    marginBottom: 8,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 2,
-  },
-  progressText: {
-    alignItems: 'center',
-  },
-  progressLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-});
+const ProgressContainer = styled.div`
+  padding: 12px 20px;
+  background: ${props => props.theme?.colors?.surface || '#f8f9fa'};
+  border-top: 1px solid rgba(0,0,0,0.1);
+`;
+
+const ProgressBar = styled.div`
+  height: 4px;
+  border-radius: 2px;
+  background: ${props => props.theme?.colors?.border || '#e9ecef'};
+  margin-bottom: 8px;
+`;
+
+const ProgressFill = styled.div<{ progress: number }>`
+  height: 100%;
+  border-radius: 2px;
+  background: ${props => props.theme?.colors?.primary || '#007AFF'};
+  width: ${props => props.progress}%;
+  transition: width 0.3s ease;
+`;
+
+const ProgressText = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+const ProgressLabel = styled.span`
+  font-size: 12px;
+  font-weight: 500;
+  color: ${props => props.theme?.colors?.textSecondary || '#6c757d'};
+`;

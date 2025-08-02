@@ -1,7 +1,6 @@
-import { Dimensions } from 'react-native';
 import { SwipeAction } from '@/types';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const SCREEN_WIDTH = window.innerWidth;
 
 export const SWIPE_CONFIG = {
   THRESHOLD: SCREEN_WIDTH * 0.3, // 30% of screen width

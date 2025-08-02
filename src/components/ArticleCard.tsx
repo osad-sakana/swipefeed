@@ -1,10 +1,8 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet, ScrollView, Dimensions, TouchableOpacity, Linking } from 'react-native';
+import styled from 'styled-components';
 import { Article, Feed } from '@/types';
 import { useAppContext } from '@/context/AppContext';
 import { formatDate } from '@/utils/dateUtils';
-
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface ArticleCardProps {
   article: Article;
@@ -15,218 +13,221 @@ interface ArticleCardProps {
 export function ArticleCard({ article, feed }: ArticleCardProps): JSX.Element {
   const { theme, settings } = useAppContext();
 
-  const handleLinkPress = async (): Promise<void> => {
-    try {
-      await Linking.openURL(article.link);
-    } catch (error) {
-      console.error('Failed to open link:', error);
-    }
+  const handleLinkPress = (): void => {
+    window.open(article.link, '_blank');
   };
 
-  const getFontSize = (): number => {
+  const getFontSize = (): string => {
     switch (settings.fontSize) {
       case 'small':
-        return 14;
+        return '14px';
       case 'large':
-        return 18;
+        return '18px';
       default: // medium
-        return 16;
+        return '16px';
     }
   };
 
-  const getTitleFontSize = (): number => {
+  const getTitleFontSize = (): string => {
     switch (settings.fontSize) {
       case 'small':
-        return 20;
+        return '20px';
       case 'large':
-        return 28;
+        return '28px';
       default: // medium
-        return 24;
+        return '24px';
     }
   };
-
-  const styles = createStyles(theme, getFontSize(), getTitleFontSize());
 
   return (
-    <View style={styles.container}>
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
+    <Container theme={theme}>
+      <ScrollableContent>
         {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.feedTitle} numberOfLines={1}>
+        <Header theme={theme}>
+          <FeedTitle theme={theme}>
             {feed?.title || 'Unknown Feed'}
-          </Text>
-          <Text style={styles.dateText}>
+          </FeedTitle>
+          <DateText theme={theme}>
             {formatDate(article.pubDate)}
-          </Text>
-        </View>
+          </DateText>
+        </Header>
 
         {/* Image */}
         {settings.showImages && article.imageUrl && (
-          <View style={styles.imageContainer}>
-            <Image
-              source={{ uri: article.imageUrl }}
-              style={styles.image}
-              resizeMode="cover"
+          <ImageContainer theme={theme}>
+            <ArticleImage
+              src={article.imageUrl}
+              alt={article.title}
             />
-          </View>
+          </ImageContainer>
         )}
 
         {/* Title */}
-        <Text style={styles.title}>
+        <Title theme={theme} fontSize={getTitleFontSize()}>
           {article.title}
-        </Text>
+        </Title>
 
         {/* Description/Content */}
-        <Text style={styles.description}>
+        <Description theme={theme} fontSize={getFontSize()}>
           {article.description}
-        </Text>
+        </Description>
 
         {/* Footer */}
-        <View style={styles.footer}>
-          <TouchableOpacity 
-            style={styles.readMoreButton}
-            onPress={handleLinkPress}
-            activeOpacity={0.7}
+        <Footer theme={theme}>
+          <ReadMoreButton 
+            theme={theme}
+            onClick={handleLinkPress}
           >
-            <Text style={styles.readMoreText}>
-              Read Full Article
-            </Text>
-          </TouchableOpacity>
-        </View>
+            Read Full Article
+          </ReadMoreButton>
+        </Footer>
 
-        {/* Bottom padding for gesture area */}
-        <View style={styles.bottomPadding} />
-      </ScrollView>
+        <BottomPadding />
+      </ScrollableContent>
 
       {/* Swipe hint indicators */}
-      <View style={styles.swipeHints}>
-        <View style={[styles.swipeHint, styles.leftHint, { backgroundColor: theme.colors.warning }]}>
-          <Text style={styles.hintText}>📖</Text>
-          <Text style={styles.hintLabel}>Bookmark</Text>
-        </View>
-        <View style={[styles.swipeHint, styles.rightHint, { backgroundColor: theme.colors.success }]}>
-          <Text style={styles.hintText}>✓</Text>
-          <Text style={styles.hintLabel}>Read</Text>
-        </View>
-      </View>
-    </View>
+      <SwipeHints>
+        <SwipeHint direction="left" theme={theme}>
+          <HintText>📖</HintText>
+          <HintLabel>Bookmark</HintLabel>
+        </SwipeHint>
+        <SwipeHint direction="right" theme={theme}>
+          <HintText>✓</HintText>
+          <HintLabel>Read</HintLabel>
+        </SwipeHint>
+      </SwipeHints>
+    </Container>
   );
 }
 
-function createStyles(theme: any, fontSize: number, titleFontSize: number) {
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: theme.colors.background,
-    },
-    scrollView: {
-      flex: 1,
-    },
-    contentContainer: {
-      paddingHorizontal: 20,
-      paddingTop: 20,
-      minHeight: SCREEN_HEIGHT - 100, // Leave space for navigation
-    },
-    header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 16,
-      paddingBottom: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.colors.border,
-    },
-    feedTitle: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: theme.colors.primary,
-      flex: 1,
-      marginRight: 12,
-    },
-    dateText: {
-      fontSize: 12,
-      color: theme.colors.textSecondary,
-    },
-    imageContainer: {
-      marginBottom: 16,
-      borderRadius: 12,
-      overflow: 'hidden',
-      backgroundColor: theme.colors.surface,
-    },
-    image: {
-      width: '100%',
-      height: 200,
-    },
-    title: {
-      fontSize: titleFontSize,
-      fontWeight: 'bold',
-      color: theme.colors.text,
-      lineHeight: titleFontSize * 1.3,
-      marginBottom: 16,
-    },
-    description: {
-      fontSize: fontSize,
-      color: theme.colors.text,
-      lineHeight: fontSize * 1.6,
-      marginBottom: 24,
-    },
-    footer: {
-      marginTop: 'auto',
-      paddingTop: 20,
-      borderTopWidth: 1,
-      borderTopColor: theme.colors.border,
-    },
-    readMoreButton: {
-      backgroundColor: theme.colors.primary,
-      paddingHorizontal: 24,
-      paddingVertical: 12,
-      borderRadius: 8,
-      alignItems: 'center',
-    },
-    readMoreText: {
-      color: '#FFFFFF',
-      fontSize: 16,
-      fontWeight: '600',
-    },
-    bottomPadding: {
-      height: 60,
-    },
-    swipeHints: {
-      position: 'absolute',
-      top: '45%',
-      left: 0,
-      right: 0,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      paddingHorizontal: 30,
-      pointerEvents: 'none',
-      opacity: 0.7,
-    },
-    swipeHint: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: 20,
-      alignItems: 'center',
-      minWidth: 80,
-    },
-    leftHint: {
-      transform: [{ translateX: -100 }], // Start off screen
-    },
-    rightHint: {
-      transform: [{ translateX: 100 }], // Start off screen
-    },
-    hintText: {
-      fontSize: 20,
-      marginBottom: 4,
-    },
-    hintLabel: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: '#FFFFFF',
-    },
-  });
-}
+const Container = styled.div`
+  height: 100%;
+  background-color: ${props => props.theme?.colors?.background || '#ffffff'};
+  position: relative;
+`;
+
+const ScrollableContent = styled.div`
+  height: 100%;
+  overflow-y: auto;
+  padding: 20px;
+  min-height: calc(100vh - 100px);
+`;
+
+const Header = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid ${props => props.theme?.colors?.border || '#e9ecef'};
+`;
+
+const FeedTitle = styled.h3`
+  font-size: 14px;
+  font-weight: 600;
+  color: ${props => props.theme?.colors?.primary || '#007AFF'};
+  margin: 0;
+  margin-right: 12px;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const DateText = styled.span`
+  font-size: 12px;
+  color: ${props => props.theme?.colors?.textSecondary || '#6c757d'};
+`;
+
+const ImageContainer = styled.div`
+  margin-bottom: 16px;
+  border-radius: 12px;
+  overflow: hidden;
+  background-color: ${props => props.theme?.colors?.surface || '#f8f9fa'};
+`;
+
+const ArticleImage = styled.img`
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+`;
+
+const Title = styled.h1<{ fontSize: string }>`
+  font-size: ${props => props.fontSize};
+  font-weight: bold;
+  color: ${props => props.theme?.colors?.text || '#000000'};
+  line-height: 1.3;
+  margin: 0 0 16px 0;
+`;
+
+const Description = styled.p<{ fontSize: string }>`
+  font-size: ${props => props.fontSize};
+  color: ${props => props.theme?.colors?.text || '#000000'};
+  line-height: 1.6;
+  margin: 0 0 24px 0;
+`;
+
+const Footer = styled.div`
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid ${props => props.theme?.colors?.border || '#e9ecef'};
+`;
+
+const ReadMoreButton = styled.button`
+  background-color: ${props => props.theme?.colors?.primary || '#007AFF'};
+  color: #FFFFFF;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  width: 100%;
+  transition: opacity 0.2s;
+
+  &:hover {
+    opacity: 0.8;
+  }
+`;
+
+const BottomPadding = styled.div`
+  height: 60px;
+`;
+
+const SwipeHints = styled.div`
+  position: absolute;
+  top: 45%;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 30px;
+  pointer-events: none;
+  opacity: 0.7;
+`;
+
+const SwipeHint = styled.div<{ direction: 'left' | 'right' }>`
+  padding: 8px 16px;
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 80px;
+  background-color: ${props => 
+    props.direction === 'left' 
+      ? props.theme?.colors?.warning || '#FFC107'
+      : props.theme?.colors?.success || '#28A745'
+  };
+  transform: translateX(${props => props.direction === 'left' ? '-100px' : '100px'});
+`;
+
+const HintText = styled.span`
+  font-size: 20px;
+  margin-bottom: 4px;
+`;
+
+const HintLabel = styled.span`
+  font-size: 12px;
+  font-weight: 600;
+  color: #FFFFFF;
+`;

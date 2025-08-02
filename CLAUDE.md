@@ -8,10 +8,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 npm install          # Install dependencies
-npm start           # Start Expo development server
-npm run ios         # Run on iOS simulator
-npm run android     # Run on Android emulator/device
-npm run web         # Run on web browser
+npm run dev         # Start Vite development server
+npm run build       # Build for production
+npm run preview     # Preview production build
+npm run serve       # Serve production build
 ```
 
 ### Code Quality
@@ -20,14 +20,12 @@ npm run web         # Run on web browser
 npm run lint        # Run ESLint
 npm run lint:fix    # Auto-fix ESLint issues
 npm run typecheck   # Run TypeScript type checking
-npm test           # Run Jest tests
 ```
 
 ### Building
 
 ```bash
-eas build --platform ios      # Build for iOS
-eas build --platform android  # Build for Android
+npm run build       # Build for production deployment
 ```
 
 ## Architecture Overview
@@ -42,21 +40,21 @@ context's action dispatchers (`markAsRead`, `addBookmark`, `refreshFeeds`, etc.)
 
 Three core services handle data operations:
 
-- **DatabaseService**: SQLite operations using expo-sqlite with promise-based transaction handling
+- **DatabaseService**: IndexedDB operations using Dexie with promise-based transaction handling
 - **RSSService**: RSS feed parsing, validation, and fetching with rss-parser and axios
-- **StorageService**: AsyncStorage operations for settings and app preferences
+- **StorageService**: localStorage operations for settings and app preferences
 
 ### Gesture-Based UI Architecture
 
-The core UX revolves around swipe gestures implemented with react-native-gesture-handler and react-native-reanimated:
+The core UX revolves around swipe gestures implemented with framer-motion:
 
-- **SwipeGesture**: PanGestureHandler wrapper that manages swipe detection, thresholds, and animations
+- **SwipeGesture**: Drag gesture wrapper that manages swipe detection, thresholds, and animations
 - **SwipeUtils**: Configuration constants and calculation functions for swipe behavior
 - Right swipe = mark as read, Left swipe = bookmark (configurable sensitivity)
 
 ### Navigation Structure
 
-Bottom tab navigation with 4 main screens:
+React Router with bottom tab navigation with 4 main screens:
 
 - **SwipeScreen**: Main reading interface with full-screen article cards
 - **FeedManagerScreen**: RSS feed CRUD operations with validation
@@ -87,22 +85,22 @@ context. Colors follow iOS design system patterns.
 
 ### Database Schema
 
-SQLite tables:
+IndexedDB (via Dexie) tables:
 
 - `feeds`: RSS feed metadata and status
 - `articles`: Article content with read/bookmark/skip flags
-- Foreign key relationships with cascading deletes
+- Indexed queries for performance optimization
 
 ## Module Path Resolution
 
-Uses babel-plugin-module-resolver with `@/` alias pointing to `src/`. All imports use this pattern for clean
-module resolution.
+Uses Vite's path alias with `@/` pointing to `src/`. All imports use this pattern for clean module resolution.
 
 ## Critical Dependencies
 
-- **react-native-reanimated**: Must be imported as first line in gesture components
-- **expo-sqlite**: Requires expo plugin configuration in app.json
-- **react-native-gesture-handler**: Needs GestureHandlerRootView wrapper in App.tsx
+- **framer-motion**: Used for drag gestures and animations in SwipeGesture component
+- **dexie**: IndexedDB wrapper for client-side database operations
+- **styled-components**: CSS-in-JS styling solution
+- **react-router-dom**: Client-side routing for single-page application
 
 ## State Management Patterns
 

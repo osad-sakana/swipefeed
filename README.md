@@ -1,6 +1,6 @@
-# SwipeFeed - スワイプ操作RSSリーダーアプリ
+# SwipeFeed - スワイプ操作RSSリーダーWebアプリ
 
-SwipeFeedは、直感的なスワイプ操作でRSSフィードを読むことができるモバイルアプリです。
+SwipeFeedは、直感的なスワイプ操作でRSSフィードを読むことができるWebアプリケーションです。
 
 ## 機能
 
@@ -8,7 +8,7 @@ SwipeFeedは、直感的なスワイプ操作でRSSフィードを読むこと�
 
 - **スワイプ操作**: 右スワイプで既読、左スワイプでブックマーク
 - **フルスクリーン表示**: 1記事ずつ集中して読める
-- **スムーズアニメーション**: react-native-reanimatedによる滑らかな操作
+- **スムーズアニメーション**: framer-motionによる滑らかな操作
 
 ### 📡 フィード管理
 
@@ -31,14 +31,14 @@ SwipeFeedは、直感的なスワイプ操作でRSSフィードを読むこと�
 
 ## 技術スタック
 
-- **Framework**: React Native with Expo
+- **Framework**: React 18 with Vite
 - **Language**: TypeScript
-- **Navigation**: React Navigation (Bottom Tabs)
+- **Navigation**: React Router DOM
 - **State Management**: Context API + useReducer
-- **Database**: SQLite (expo-sqlite)
-- **Storage**: AsyncStorage
-- **Animations**: react-native-reanimated
-- **Gestures**: react-native-gesture-handler
+- **Database**: IndexedDB (Dexie)
+- **Storage**: localStorage
+- **Styling**: styled-components
+- **Animations**: framer-motion
 - **RSS Parsing**: rss-parser
 
 ## プロジェクト構成
@@ -50,9 +50,9 @@ src/
 ├── context/
 │   └── AppContext.tsx        # Context API実装
 ├── services/
-│   ├── DatabaseService.ts    # SQLite操作
+│   ├── DatabaseService.ts    # IndexedDB操作 (Dexie)
 │   ├── RSSService.ts         # RSS解析・取得
-│   └── StorageService.ts     # AsyncStorage操作
+│   └── StorageService.ts     # localStorage操作
 ├── screens/
 │   ├── SwipeScreen.tsx       # メイン記事スワイプ画面
 │   ├── FeedManagerScreen.tsx # フィード管理画面
@@ -60,8 +60,8 @@ src/
 │   └── SettingsScreen.tsx    # 設定画面
 ├── components/
 │   ├── ArticleCard.tsx       # スワイプ可能な記事カード
-│   ├── SwipeGesture.tsx      # スワイプジェスチャーハンドラー
-│   ├── FeedItem.tsx          # フィード管理用アイテム
+│   ├── SwipeGesture.tsx      # ドラッグジェスチャーハンドラー
+│   ├── Layout.tsx            # ナビゲーションレイアウト
 │   └── EmptyState.tsx        # 空状態表示
 └── utils/
     ├── dateUtils.ts          # 日付操作ユーティリティ
@@ -72,9 +72,8 @@ src/
 
 ### 前提条件
 
-- Node.js (v16以上)
-- Expo CLI
-- iOS Simulator / Android Emulator または実機
+- Node.js (v18以上)
+- モダンなWebブラウザ (Chrome, Firefox, Safari, Edge)
 
 ### インストール
 
@@ -84,31 +83,31 @@ src/
 npm install
 ```
 
-1. アプリの起動
+2. 開発サーバーの起動
 
 ```bash
-npm start
+npm run dev
 ```
 
-1. iOS/Androidでの実行
+3. ブラウザで開く
 
-```bash
-npm run ios
-npm run android
+```
+http://localhost:3000
 ```
 
 ## 使い方
 
 ### 初回セットアップ
 
-1. アプリを起動
-2. 「Feeds」タブでRSSフィードを追加
-3. 「Swipe」タブで記事を読み始める
+1. Webアプリを開く
+2. 「フィード」タブでRSSフィードを追加
+3. 「スワイプ」タブで記事を読み始める
 
 ### スワイプ操作
 
-- **右スワイプ (→)**: 記事を既読にして次へ
-- **左スワイプ (←)**: 記事をブックマークして次へ
+- **右ドラッグ (→)**: 記事を既読にして次へ
+- **左ドラッグ (←)**: 記事をブックマークして次へ
+- **マウス・タッチ対応**: PCでもスマートフォンでも使用可能
 
 ### フィード追加例
 
@@ -122,7 +121,7 @@ https://feeds.bbci.co.uk/news/rss.xml
 
 ### SwipeGesture
 
-PanGestureHandlerを使用したスワイプ検出とアニメーション制御
+framer-motionを使用したドラッグ検出とアニメーション制御
 
 ### ArticleCard
 
@@ -130,7 +129,7 @@ PanGestureHandlerを使用したスワイプ検出とアニメーション制御
 
 ### DatabaseService
 
-SQLiteでの記事とフィードのCRUD操作
+IndexedDB (Dexie) での記事とフィードのCRUD操作
 
 ### RSSService
 
@@ -168,26 +167,36 @@ MIT License
 
 ## 開発者向け情報
 
-### デバッグ
+### 開発コマンド
 
 ```bash
+npm run dev         # 開発サーバー起動
+npm run build       # プロダクションビルド
+npm run preview     # ビルド結果のプレビュー
 npm run lint        # ESLintチェック
 npm run typecheck   # TypeScriptチェック
 ```
 
-### ビルド
+### デプロイ
 
 ```bash
 npm run build       # プロダクションビルド
-eas build --platform ios     # iOS用ビルド
-eas build --platform android # Android用ビルド
+# distフォルダを任意のWebサーバーにデプロイ
 ```
+
+### 対応プラットフォーム
+
+- **デスクトップ**: Chrome, Firefox, Safari, Edge
+- **モバイル**: iOS Safari, Android Chrome
+- **PWA対応**: オフライン機能とアプリライクな体験
 
 ## 今後の拡張予定
 
-- [ ] プッシュ通知
+- [ ] PWA対応 (Service Worker)
 - [ ] オフライン読書モード
 - [ ] 記事の全文検索
 - [ ] ソーシャル共有機能
 - [ ] 読書統計の表示
 - [ ] カテゴリー別フィード整理
+- [ ] ダークモード切り替え
+- [ ] レスポンシブデザインの最適化

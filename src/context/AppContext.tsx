@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
-import { AppState, AppAction, Settings, Theme } from '@/types';
+import { AppState, AppAction, Settings, Theme, Feed } from '@/types';
 import { DatabaseService } from '@/services/DatabaseService';
 import { StorageService } from '@/services/StorageService';
 import { RSSService } from '@/services/RSSService';
@@ -273,11 +273,7 @@ export function AppProvider({ children }: AppProviderProps): JSX.Element {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       
-      const result = await RSSService.updateAllFeeds();
-      
-      if (result.errors.length > 0) {
-        dispatch({ type: 'SET_ERROR', payload: `Some feeds failed to update: ${result.errors.join(', ')}` });
-      }
+      await RSSService.refreshAllFeeds();
       
       // Reload feeds and articles
       const feeds = await DatabaseService.getFeeds();
@@ -297,12 +293,38 @@ export function AppProvider({ children }: AppProviderProps): JSX.Element {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       
-      const newFeed = await RSSService.addFeed(url);
+      // Validate the feed first
+      const validation = await RSSService.validateFeedUrl(url);
+      if (!validation.isValid) {
+        throw new Error(validation.error || 'Invalid RSS feed');
+      }
+      
+      // Create new feed object
+      const newFeed: Feed = {
+        id: btoa(url).replace(/[^a-zA-Z0-9]/g, '').substring(0, 16),
+        title: validation.title || 'New Feed',
+        url: url,
+        description: validation.description,
+        lastUpdated: new Date(),
+        unreadCount: 0,
+        isActive: true,
+      };
+      
+      // Save feed to database
+      await DatabaseService.saveFeed(newFeed);
+      
+      // Fetch articles for the new feed
+      const articles = await RSSService.fetchFeed(newFeed);
+      if (articles.length > 0) {
+        await DatabaseService.saveArticles(articles);
+        await DatabaseService.updateFeedUnreadCount(newFeed.id);
+      }
+      
       dispatch({ type: 'ADD_FEED', payload: newFeed });
       
       // Reload articles to include new feed's articles
-      const articles = await DatabaseService.getArticles();
-      dispatch({ type: 'SET_ARTICLES', payload: articles });
+      const allArticles = await DatabaseService.getArticles();
+      dispatch({ type: 'SET_ARTICLES', payload: allArticles });
       
     } catch (error) {
       throw error; // Let the calling component handle the error

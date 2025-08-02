@@ -1,104 +1,71 @@
-import SQLite from 'react-native-sqlite-storage';
+import Dexie, { Table } from 'dexie';
 import { Feed, Article } from '@/types';
 
-// Enable debugging (remove in production)
-SQLite.DEBUG(true);
-SQLite.enablePromise(true);
+interface FeedRow {
+  id: string;
+  title: string;
+  url: string;
+  description?: string;
+  last_updated: number;
+  unread_count: number;
+  is_active: boolean;
+}
+
+interface ArticleRow {
+  id: string;
+  feed_id: string;
+  title: string;
+  description: string;
+  content?: string;
+  link: string;
+  image_url?: string;
+  pub_date: number;
+  is_read: boolean;
+  is_bookmarked: boolean;
+  is_skipped: boolean;
+}
+
+class SwipeFeedDB extends Dexie {
+  feeds!: Table<FeedRow, string>;
+  articles!: Table<ArticleRow, string>;
+
+  constructor() {
+    super('SwipeFeedDB');
+    this.version(1).stores({
+      feeds: 'id, title, url, last_updated, unread_count, is_active',
+      articles: 'id, feed_id, title, pub_date, is_read, is_bookmarked, is_skipped'
+    });
+  }
+}
 
 class DatabaseServiceClass {
-  private db: SQLite.SQLiteDatabase | null = null;
+  private db: SwipeFeedDB;
+
+  constructor() {
+    this.db = new SwipeFeedDB();
+  }
 
   async initialize(): Promise<void> {
     try {
-      this.db = await SQLite.openDatabase(
-        {
-          name: 'swipefeed.db',
-          location: 'default',
-        }
-      );
-      await this.createTables();
+      await this.db.open();
     } catch (error) {
       console.error('Failed to initialize database:', error);
       throw new Error('Database initialization failed');
     }
   }
 
-  private async createTables(): Promise<void> {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
-
-    try {
-      // Create feeds table
-      await this.db.executeSql(`
-        CREATE TABLE IF NOT EXISTS feeds (
-          id TEXT PRIMARY KEY,
-          title TEXT NOT NULL,
-          url TEXT UNIQUE NOT NULL,
-          description TEXT,
-          last_updated INTEGER,
-          unread_count INTEGER DEFAULT 0,
-          is_active INTEGER DEFAULT 1
-        );
-      `);
-
-      // Create articles table
-      await this.db.executeSql(`
-        CREATE TABLE IF NOT EXISTS articles (
-          id TEXT PRIMARY KEY,
-          feed_id TEXT,
-          title TEXT NOT NULL,
-          description TEXT,
-          content TEXT,
-          link TEXT,
-          image_url TEXT,
-          pub_date INTEGER,
-          is_read INTEGER DEFAULT 0,
-          is_bookmarked INTEGER DEFAULT 0,
-          is_skipped INTEGER DEFAULT 0,
-          FOREIGN KEY (feed_id) REFERENCES feeds (id)
-        );
-      `);
-
-      // Create indexes for better performance
-      await this.db.executeSql(`
-        CREATE INDEX IF NOT EXISTS idx_articles_feed_id ON articles (feed_id);
-      `);
-      
-      await this.db.executeSql(`
-        CREATE INDEX IF NOT EXISTS idx_articles_pub_date ON articles (pub_date DESC);
-      `);
-      
-      await this.db.executeSql(`
-        CREATE INDEX IF NOT EXISTS idx_articles_unread ON articles (is_read, is_skipped);
-      `);
-    } catch (error) {
-      console.error('Failed to create tables:', error);
-      throw error;
-    }
-  }
-
   // Feed operations
   async saveFeed(feed: Feed): Promise<void> {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
-
     try {
-      await this.db.executeSql(
-        `INSERT OR REPLACE INTO feeds 
-         (id, title, url, description, last_updated, unread_count, is_active) 
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [
-          feed.id,
-          feed.title,
-          feed.url,
-          feed.description || null,
-          feed.lastUpdated.getTime(),
-          feed.unreadCount,
-          feed.isActive ? 1 : 0,
-        ]
-      );
+      await this.db.feeds.put({
+        id: feed.id,
+        title: feed.title,
+        url: feed.url,
+        description: feed.description,
+        last_updated: feed.lastUpdated.getTime(),
+        unread_count: feed.unreadCount,
+        is_active: feed.isActive,
+      });
     } catch (error) {
       console.error('Failed to save feed:', error);
       throw error;
@@ -106,28 +73,17 @@ class DatabaseServiceClass {
   }
 
   async getFeeds(): Promise<Feed[]> {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
-
     try {
-      const [results] = await this.db.executeSql('SELECT * FROM feeds ORDER BY title');
-      const feeds: Feed[] = [];
-      
-      for (let i = 0; i < results.rows.length; i++) {
-        const row = results.rows.item(i);
-        feeds.push({
-          id: row.id,
-          title: row.title,
-          url: row.url,
-          description: row.description,
-          lastUpdated: new Date(row.last_updated),
-          unreadCount: row.unread_count,
-          isActive: row.is_active === 1,
-        });
-      }
-      
-      return feeds;
+      const feedRows = await this.db.feeds.orderBy('title').toArray();
+      return feedRows.map(row => ({
+        id: row.id,
+        title: row.title,
+        url: row.url,
+        description: row.description,
+        lastUpdated: new Date(row.last_updated),
+        unreadCount: row.unread_count,
+        isActive: row.is_active,
+      }));
     } catch (error) {
       console.error('Failed to get feeds:', error);
       throw error;
@@ -135,291 +91,169 @@ class DatabaseServiceClass {
   }
 
   async deleteFeed(feedId: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        reject(new Error('Database not initialized'));
-        return;
-      }
-
-      this.db.transaction(
-        (tx) => {
-          // Delete associated articles first
-          tx.executeSql('DELETE FROM articles WHERE feed_id = ?', [feedId]);
-          // Delete the feed
-          tx.executeSql('DELETE FROM feeds WHERE id = ?', [feedId]);
-        },
-        (error) => reject(error),
-        () => resolve()
-      );
-    });
+    try {
+      await this.db.transaction('rw', this.db.feeds, this.db.articles, async () => {
+        // Delete associated articles first
+        await this.db.articles.where('feed_id').equals(feedId).delete();
+        // Delete the feed
+        await this.db.feeds.delete(feedId);
+      });
+    } catch (error) {
+      console.error('Failed to delete feed:', error);
+      throw error;
+    }
   }
 
   // Article operations
   async saveArticles(articles: Article[]): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!this.db || articles.length === 0) {
-        resolve();
-        return;
-      }
+    if (articles.length === 0) return;
 
-      this.db.transaction(
-        (tx) => {
-          articles.forEach((article) => {
-            tx.executeSql(
-              `INSERT OR REPLACE INTO articles 
-               (id, feed_id, title, description, content, link, image_url, pub_date, 
-                is_read, is_bookmarked, is_skipped) 
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [
-                article.id,
-                article.feedId,
-                article.title,
-                article.description,
-                article.content || null,
-                article.link,
-                article.imageUrl || null,
-                article.pubDate.getTime(),
-                article.isRead ? 1 : 0,
-                article.isBookmarked ? 1 : 0,
-                article.isSkipped ? 1 : 0,
-              ]
-            );
-          });
-        },
-        (error) => reject(error),
-        () => resolve()
-      );
-    });
+    try {
+      const articleRows: ArticleRow[] = articles.map(article => ({
+        id: article.id,
+        feed_id: article.feedId,
+        title: article.title,
+        description: article.description,
+        content: article.content,
+        link: article.link,
+        image_url: article.imageUrl,
+        pub_date: article.pubDate.getTime(),
+        is_read: article.isRead,
+        is_bookmarked: article.isBookmarked,
+        is_skipped: article.isSkipped,
+      }));
+      
+      await this.db.articles.bulkPut(articleRows);
+    } catch (error) {
+      console.error('Failed to save articles:', error);
+      throw error;
+    }
   }
 
   async getArticles(limit?: number): Promise<Article[]> {
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        reject(new Error('Database not initialized'));
-        return;
-      }
-
-      const query = limit 
-        ? 'SELECT * FROM articles ORDER BY pub_date DESC LIMIT ?'
-        : 'SELECT * FROM articles ORDER BY pub_date DESC';
-      const params = limit ? [limit] : [];
-
-      this.db.transaction((tx) => {
-        tx.executeSql(
-          query,
-          params,
-          (_, { rows }) => {
-            const articles: Article[] = [];
-            for (let i = 0; i < rows.length; i++) {
-              const row = rows.item(i);
-              articles.push({
-                id: row.id,
-                feedId: row.feed_id,
-                title: row.title,
-                description: row.description,
-                content: row.content,
-                link: row.link,
-                imageUrl: row.image_url,
-                pubDate: new Date(row.pub_date),
-                isRead: row.is_read === 1,
-                isBookmarked: row.is_bookmarked === 1,
-                isSkipped: row.is_skipped === 1,
-              });
-            }
-            resolve(articles);
-          },
-          (_, error) => {
-            reject(error);
-            return false;
-          }
-        );
-      });
-    });
+    try {
+      let query = this.db.articles.orderBy('pub_date').reverse();
+      const articleRows = limit ? await query.limit(limit).toArray() : await query.toArray();
+      
+      return articleRows.map(row => ({
+        id: row.id,
+        feedId: row.feed_id,
+        title: row.title,
+        description: row.description,
+        content: row.content,
+        link: row.link,
+        imageUrl: row.image_url,
+        pubDate: new Date(row.pub_date),
+        isRead: row.is_read,
+        isBookmarked: row.is_bookmarked,
+        isSkipped: row.is_skipped,
+      }));
+    } catch (error) {
+      console.error('Failed to get articles:', error);
+      throw error;
+    }
   }
 
   async getUnreadArticles(): Promise<Article[]> {
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        reject(new Error('Database not initialized'));
-        return;
-      }
-
-      this.db.transaction((tx) => {
-        tx.executeSql(
-          'SELECT * FROM articles WHERE is_read = 0 AND is_skipped = 0 ORDER BY pub_date DESC',
-          [],
-          (_, { rows }) => {
-            const articles: Article[] = [];
-            for (let i = 0; i < rows.length; i++) {
-              const row = rows.item(i);
-              articles.push({
-                id: row.id,
-                feedId: row.feed_id,
-                title: row.title,
-                description: row.description,
-                content: row.content,
-                link: row.link,
-                imageUrl: row.image_url,
-                pubDate: new Date(row.pub_date),
-                isRead: row.is_read === 1,
-                isBookmarked: row.is_bookmarked === 1,
-                isSkipped: row.is_skipped === 1,
-              });
-            }
-            resolve(articles);
-          },
-          (_, error) => {
-            reject(error);
-            return false;
-          }
-        );
-      });
-    });
+    try {
+      const allArticles = await this.db.articles.orderBy('pub_date').reverse().toArray();
+      const articleRows = allArticles.filter(article => !article.is_read && !article.is_skipped);
+      
+      return articleRows.map(row => ({
+        id: row.id,
+        feedId: row.feed_id,
+        title: row.title,
+        description: row.description,
+        content: row.content,
+        link: row.link,
+        imageUrl: row.image_url,
+        pubDate: new Date(row.pub_date),
+        isRead: row.is_read,
+        isBookmarked: row.is_bookmarked,
+        isSkipped: row.is_skipped,
+      }));
+    } catch (error) {
+      console.error('Failed to get unread articles:', error);
+      throw error;
+    }
   }
 
   async getBookmarkedArticles(): Promise<Article[]> {
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        reject(new Error('Database not initialized'));
-        return;
-      }
-
-      this.db.transaction((tx) => {
-        tx.executeSql(
-          'SELECT * FROM articles WHERE is_bookmarked = 1 ORDER BY pub_date DESC',
-          [],
-          (_, { rows }) => {
-            const articles: Article[] = [];
-            for (let i = 0; i < rows.length; i++) {
-              const row = rows.item(i);
-              articles.push({
-                id: row.id,
-                feedId: row.feed_id,
-                title: row.title,
-                description: row.description,
-                content: row.content,
-                link: row.link,
-                imageUrl: row.image_url,
-                pubDate: new Date(row.pub_date),
-                isRead: row.is_read === 1,
-                isBookmarked: row.is_bookmarked === 1,
-                isSkipped: row.is_skipped === 1,
-              });
-            }
-            resolve(articles);
-          },
-          (_, error) => {
-            reject(error);
-            return false;
-          }
-        );
-      });
-    });
+    try {
+      const allArticles = await this.db.articles.orderBy('pub_date').reverse().toArray();
+      const articleRows = allArticles.filter(article => article.is_bookmarked);
+      
+      return articleRows.map(row => ({
+        id: row.id,
+        feedId: row.feed_id,
+        title: row.title,
+        description: row.description,
+        content: row.content,
+        link: row.link,
+        imageUrl: row.image_url,
+        pubDate: new Date(row.pub_date),
+        isRead: row.is_read,
+        isBookmarked: row.is_bookmarked,
+        isSkipped: row.is_skipped,
+      }));
+    } catch (error) {
+      console.error('Failed to get bookmarked articles:', error);
+      throw error;
+    }
   }
 
   async markArticleAsRead(articleId: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        reject(new Error('Database not initialized'));
-        return;
-      }
-
-      this.db.transaction(
-        (tx) => {
-          tx.executeSql(
-            'UPDATE articles SET is_read = 1 WHERE id = ?',
-            [articleId]
-          );
-        },
-        (error) => reject(error),
-        () => resolve()
-      );
-    });
+    try {
+      await this.db.articles.update(articleId, { is_read: true });
+    } catch (error) {
+      console.error('Failed to mark article as read:', error);
+      throw error;
+    }
   }
 
   async bookmarkArticle(articleId: string, isBookmarked: boolean): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        reject(new Error('Database not initialized'));
-        return;
-      }
-
-      this.db.transaction(
-        (tx) => {
-          tx.executeSql(
-            'UPDATE articles SET is_bookmarked = ? WHERE id = ?',
-            [isBookmarked ? 1 : 0, articleId]
-          );
-        },
-        (error) => reject(error),
-        () => resolve()
-      );
-    });
+    try {
+      await this.db.articles.update(articleId, { is_bookmarked: isBookmarked });
+    } catch (error) {
+      console.error('Failed to bookmark article:', error);
+      throw error;
+    }
   }
 
   async skipArticle(articleId: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        reject(new Error('Database not initialized'));
-        return;
-      }
-
-      this.db.transaction(
-        (tx) => {
-          tx.executeSql(
-            'UPDATE articles SET is_skipped = 1 WHERE id = ?',
-            [articleId]
-          );
-        },
-        (error) => reject(error),
-        () => resolve()
-      );
-    });
+    try {
+      await this.db.articles.update(articleId, { is_skipped: true });
+    } catch (error) {
+      console.error('Failed to skip article:', error);
+      throw error;
+    }
   }
 
   async updateFeedUnreadCount(feedId: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        reject(new Error('Database not initialized'));
-        return;
-      }
-
-      this.db.transaction(
-        (tx) => {
-          tx.executeSql(
-            `UPDATE feeds SET unread_count = (
-               SELECT COUNT(*) FROM articles 
-               WHERE feed_id = ? AND is_read = 0 AND is_skipped = 0
-             ) WHERE id = ?`,
-            [feedId, feedId]
-          );
-        },
-        (error) => reject(error),
-        () => resolve()
-      );
-    });
+    try {
+      const allArticles = await this.db.articles.where('feed_id').equals(feedId).toArray();
+      const unreadCount = allArticles.filter(article => !article.is_read && !article.is_skipped).length;
+      
+      await this.db.feeds.update(feedId, { unread_count: unreadCount });
+    } catch (error) {
+      console.error('Failed to update feed unread count:', error);
+      throw error;
+    }
   }
 
   async cleanupOldArticles(daysToKeep: number = 30): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!this.db) {
-        reject(new Error('Database not initialized'));
-        return;
-      }
-
+    try {
       const cutoffDate = Date.now() - (daysToKeep * 24 * 60 * 60 * 1000);
-
-      this.db.transaction(
-        (tx) => {
-          tx.executeSql(
-            'DELETE FROM articles WHERE pub_date < ? AND is_bookmarked = 0',
-            [cutoffDate]
-          );
-        },
-        (error) => reject(error),
-        () => resolve()
-      );
-    });
+      
+      await this.db.articles
+        .where('pub_date')
+        .below(cutoffDate)
+        .and(article => !article.is_bookmarked)
+        .delete();
+    } catch (error) {
+      console.error('Failed to cleanup old articles:', error);
+      throw error;
+    }
   }
 }
 

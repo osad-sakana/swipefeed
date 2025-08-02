@@ -24,7 +24,11 @@
       "Bash(node:*)",
       "Bash(nvm list:*)",
       "Bash(nvm install:*)",
-      "Bash(nvm use:*)"
+      "Bash(nvm use:*)",
+      "Bash(pkill:*)",
+      "Bash(npm start:*)",
+      "Bash(mv:*)",
+      "Bash(npm run dev:*)"
     ],
     "deny": []
   }

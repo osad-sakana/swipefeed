@@ -1,40 +1,27 @@
-import Parser from 'rss-parser';
 import { Feed, Article } from '@/types';
 import { DatabaseService } from './DatabaseService';
 
-interface RSSFeedData {
+interface ParsedFeed {
   title?: string;
   description?: string;
-  items: RSSItem[];
+  items: ParsedItem[];
 }
 
-interface RSSItem {
+interface ParsedItem {
   title?: string;
   link?: string;
   pubDate?: string;
-  creator?: string;
+  description?: string;
   content?: string;
-  contentSnippet?: string;
   guid?: string;
-  categories?: string[];
-  isoDate?: string;
-  enclosure?: {
-    url: string;
-    type: string;
-  };
+  imageUrl?: string;
 }
 
 class RSSServiceClass {
-  private parser: Parser<RSSFeedData, RSSItem>;
   private readonly TIMEOUT = 10000; // 10 seconds
 
   constructor() {
-    this.parser = new Parser({
-      timeout: this.TIMEOUT,
-      headers: {
-        'User-Agent': 'SwipeFeed/1.0 (RSS Reader App)',
-      },
-    });
+    // No initialization needed for native browser APIs
   }
 
   async validateFeedUrl(url: string): Promise<{ isValid: boolean; title?: string; description?: string; error?: string }> {
@@ -43,7 +30,7 @@ class RSSServiceClass {
       const feedUrl = this.normalizeUrl(url);
       
       // Test the URL by fetching and parsing
-      const feed = await this.parser.parseURL(feedUrl);
+      const feed = await this.fetchAndParseFeed(feedUrl);
       
       return {
         isValid: true,
@@ -62,7 +49,7 @@ class RSSServiceClass {
   async fetchFeed(feed: Feed): Promise<Article[]> {
     try {
       const feedUrl = this.normalizeUrl(feed.url);
-      const parsedFeed = await this.parser.parseURL(feedUrl);
+      const parsedFeed = await this.fetchAndParseFeed(feedUrl);
       
       const articles: Article[] = [];
       
@@ -73,11 +60,11 @@ class RSSServiceClass {
           id: this.generateArticleId(item.link, item.guid),
           feedId: feed.id,
           title: this.cleanText(item.title),
-          description: this.cleanText(item.contentSnippet || item.content || ''),
+          description: this.cleanText(item.description || ''),
           content: item.content || undefined,
           link: item.link,
-          pubDate: this.parseDate(item.pubDate || item.isoDate),
-          imageUrl: this.extractImageUrl(item) || undefined,
+          pubDate: this.parseDate(item.pubDate),
+          imageUrl: item.imageUrl || undefined,
           isRead: false,
           isBookmarked: false,
           isSkipped: false,
@@ -86,201 +73,227 @@ class RSSServiceClass {
         articles.push(article);
       }
       
-      return articles.sort((a, b) => b.pubDate.getTime() - a.pubDate.getTime());
+      return articles;
     } catch (error) {
-      console.error(`Failed to fetch feed ${feed.title}:`, error);
-      throw new Error(`Failed to fetch feed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error(`Failed to fetch feed ${feed.url}:`, error);
+      throw new Error(`Failed to fetch RSS feed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  async addFeed(url: string): Promise<Feed> {
+  private async fetchAndParseFeed(url: string): Promise<ParsedFeed> {
+    // Use a CORS proxy for development, or implement a backend proxy in production
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.TIMEOUT);
+    
     try {
-      const validation = await this.validateFeedUrl(url);
+      const response = await fetch(proxyUrl, {
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/rss+xml, application/xml, text/xml',
+        },
+      });
       
-      if (!validation.isValid) {
-        throw new Error(validation.error || 'Invalid RSS feed');
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
-      const feedId = this.generateFeedId(url);
-      const feed: Feed = {
-        id: feedId,
-        title: validation.title || 'Untitled Feed',
-        url: this.normalizeUrl(url),
-        description: validation.description || undefined,
-        lastUpdated: new Date(),
-        unreadCount: 0,
-        isActive: true,
-      };
+      const data = await response.json();
+      const xmlText = data.contents;
       
-      // Save to database
-      await DatabaseService.saveFeed(feed);
-      
-      // Fetch initial articles
-      try {
-        const articles = await this.fetchFeed(feed);
-        if (articles.length > 0) {
-          await DatabaseService.saveArticles(articles);
-          feed.unreadCount = articles.length;
-          await DatabaseService.saveFeed(feed);
-        }
-      } catch (error) {
-        console.warn('Failed to fetch initial articles for new feed:', error);
+      if (!xmlText) {
+        throw new Error('No content received from RSS feed');
       }
       
-      return feed;
+      return this.parseXML(xmlText);
     } catch (error) {
-      console.error('Failed to add feed:', error);
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Request timeout');
+      }
       throw error;
     }
   }
 
-  async updateFeed(feed: Feed): Promise<{ articlesAdded: number; feed: Feed }> {
+  private parseXML(xmlText: string): ParsedFeed {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlText, 'text/xml');
+    
+    // Check for parsing errors
+    const parserError = doc.querySelector('parsererror');
+    if (parserError) {
+      throw new Error('Invalid XML format');
+    }
+    
+    // Try RSS 2.0 first, then Atom
+    const channel = doc.querySelector('channel');
+    if (channel) {
+      return this.parseRSS(doc);
+    }
+    
+    const feed = doc.querySelector('feed');
+    if (feed) {
+      return this.parseAtom(doc);
+    }
+    
+    throw new Error('Unsupported feed format');
+  }
+
+  private parseRSS(doc: Document): ParsedFeed {
+    const channel = doc.querySelector('channel');
+    if (!channel) throw new Error('Invalid RSS format');
+    
+    const title = channel.querySelector('title')?.textContent || '';
+    const description = channel.querySelector('description')?.textContent || '';
+    
+    const items: ParsedItem[] = [];
+    const itemElements = channel.querySelectorAll('item');
+    
+    itemElements.forEach(item => {
+      const titleEl = item.querySelector('title');
+      const linkEl = item.querySelector('link');
+      const descEl = item.querySelector('description');
+      const pubDateEl = item.querySelector('pubDate');
+      const guidEl = item.querySelector('guid');
+      const contentEl = item.querySelector('content\\:encoded, encoded');
+      
+      // Extract image from enclosure or media:thumbnail
+      const enclosureEl = item.querySelector('enclosure[type^="image"]');
+      const mediaEl = item.querySelector('media\\:thumbnail, thumbnail');
+      
+      let imageUrl = '';
+      if (enclosureEl) {
+        imageUrl = enclosureEl.getAttribute('url') || '';
+      } else if (mediaEl) {
+        imageUrl = mediaEl.getAttribute('url') || '';
+      }
+      
+      if (titleEl?.textContent && linkEl?.textContent) {
+        items.push({
+          title: titleEl.textContent,
+          link: linkEl.textContent,
+          description: descEl?.textContent || '',
+          content: contentEl?.textContent || '',
+          pubDate: pubDateEl?.textContent || '',
+          guid: guidEl?.textContent || '',
+          imageUrl: imageUrl || undefined,
+        });
+      }
+    });
+    
+    return { title, description, items };
+  }
+
+  private parseAtom(doc: Document): ParsedFeed {
+    const feed = doc.querySelector('feed');
+    if (!feed) throw new Error('Invalid Atom format');
+    
+    const title = feed.querySelector('title')?.textContent || '';
+    const subtitle = feed.querySelector('subtitle')?.textContent || '';
+    
+    const items: ParsedItem[] = [];
+    const entryElements = feed.querySelectorAll('entry');
+    
+    entryElements.forEach(entry => {
+      const titleEl = entry.querySelector('title');
+      const linkEl = entry.querySelector('link[rel="alternate"], link:not([rel])');
+      const summaryEl = entry.querySelector('summary');
+      const contentEl = entry.querySelector('content');
+      const publishedEl = entry.querySelector('published');
+      const updatedEl = entry.querySelector('updated');
+      const idEl = entry.querySelector('id');
+      
+      const href = linkEl?.getAttribute('href');
+      
+      if (titleEl?.textContent && href) {
+        items.push({
+          title: titleEl.textContent,
+          link: href,
+          description: summaryEl?.textContent || '',
+          content: contentEl?.textContent || '',
+          pubDate: publishedEl?.textContent || updatedEl?.textContent || '',
+          guid: idEl?.textContent || '',
+        });
+      }
+    });
+    
+    return { title, description: subtitle, items };
+  }
+
+  private normalizeUrl(url: string): string {
+    url = url.trim();
+    
+    // Add protocol if missing
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url;
+    }
+    
+    return url;
+  }
+
+  private generateArticleId(link: string, guid?: string): string {
+    // Use GUID if available, otherwise hash the link
+    const source = guid || link;
+    return btoa(source).replace(/[^a-zA-Z0-9]/g, '').substring(0, 16);
+  }
+
+  private cleanText(text: string): string {
+    // Remove HTML tags and decode entities
+    const div = document.createElement('div');
+    div.innerHTML = text;
+    return div.textContent || div.innerText || '';
+  }
+
+  private parseDate(dateString?: string): Date {
+    if (!dateString) return new Date();
+    
+    const date = new Date(dateString);
+    return isNaN(date.getTime()) ? new Date() : date;
+  }
+
+  async updateFeed(feed: Feed): Promise<void> {
     try {
       const articles = await this.fetchFeed(feed);
       
-      // Get existing article IDs to avoid duplicates
-      const existingArticles = await DatabaseService.getArticles();
-      const existingIds = new Set(existingArticles.map(a => a.id));
-      
-      const newArticles = articles.filter(article => !existingIds.has(article.id));
-      
-      if (newArticles.length > 0) {
-        await DatabaseService.saveArticles(newArticles);
+      if (articles.length > 0) {
+        await DatabaseService.saveArticles(articles);
+        await DatabaseService.updateFeedUnreadCount(feed.id);
       }
-      
-      // Update feed metadata
-      const updatedFeed: Feed = {
-        ...feed,
-        lastUpdated: new Date(),
-      };
-      
-      await DatabaseService.saveFeed(updatedFeed);
-      await DatabaseService.updateFeedUnreadCount(feed.id);
-      
-      return {
-        articlesAdded: newArticles.length,
-        feed: updatedFeed,
-      };
     } catch (error) {
       console.error(`Failed to update feed ${feed.title}:`, error);
       throw error;
     }
   }
 
-  async updateAllFeeds(): Promise<{ totalArticlesAdded: number; errors: string[] }> {
-    const feeds = await DatabaseService.getFeeds();
-    const activeFeeds = feeds.filter(feed => feed.isActive);
-    
-    let totalArticlesAdded = 0;
-    const errors: string[] = [];
-    
-    // Update feeds sequentially to avoid overwhelming servers
-    for (const feed of activeFeeds) {
-      try {
-        const result = await this.updateFeed(feed);
-        totalArticlesAdded += result.articlesAdded;
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        errors.push(`${feed.title}: ${errorMessage}`);
-      }
-      
-      // Small delay between requests to be respectful
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-    
-    return { totalArticlesAdded, errors };
-  }
-
-  private normalizeUrl(url: string): string {
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      return `https://${url}`;
-    }
-    return url;
-  }
-
-  private generateFeedId(url: string): string {
-    const normalizedUrl = this.normalizeUrl(url);
-    return `feed_${btoa(normalizedUrl).replace(/[^a-zA-Z0-9]/g, '').substring(0, 10)}_${Date.now()}`;
-  }
-
-  private generateArticleId(link: string, guid?: string): string {
-    const source = guid || link;
-    return `article_${btoa(source).replace(/[^a-zA-Z0-9]/g, '').substring(0, 16)}`;
-  }
-
-  private parseDate(dateString?: string): Date {
-    if (!dateString) return new Date();
-    
-    const parsed = new Date(dateString);
-    return isNaN(parsed.getTime()) ? new Date() : parsed;
-  }
-
-  private cleanText(text: string): string {
-    return text
-      .replace(/<[^>]*>/g, '') // Remove HTML tags
-      .replace(/&nbsp;/g, ' ') // Replace &nbsp; with spaces
-      .replace(/&amp;/g, '&') // Replace &amp; with &
-      .replace(/&lt;/g, '<') // Replace &lt; with <
-      .replace(/&gt;/g, '>') // Replace &gt; with >
-      .replace(/&quot;/g, '"') // Replace &quot; with "
-      .replace(/&#39;/g, "'") // Replace &#39; with '
-      .replace(/\s+/g, ' ') // Replace multiple spaces with single space
-      .trim();
-  }
-
-  private extractImageUrl(item: RSSItem): string | undefined {
-    // Try enclosure first (podcasts often use this)
-    if (item.enclosure && item.enclosure.type.startsWith('image/')) {
-      return item.enclosure.url;
-    }
-    
-    // Try to extract image from content
-    if (item.content) {
-      const imgMatch = item.content.match(/<img[^>]+src="([^"]+)"/i);
-      if (imgMatch) {
-        return imgMatch[1];
-      }
-    }
-    
-    return undefined;
-  }
-
-  async testConnection(): Promise<boolean> {
+  async refreshAllFeeds(): Promise<void> {
     try {
-      // Test with a reliable RSS feed
-      const testUrl = 'https://feeds.feedburner.com/TechCrunch';
-      await this.parser.parseURL(testUrl);
-      return true;
+      const feeds = await DatabaseService.getFeeds();
+      const activeFeeds = feeds.filter(feed => feed.isActive);
+      
+      // Update feeds in parallel, but limit concurrency
+      const BATCH_SIZE = 3;
+      for (let i = 0; i < activeFeeds.length; i += BATCH_SIZE) {
+        const batch = activeFeeds.slice(i, i + BATCH_SIZE);
+        await Promise.allSettled(
+          batch.map(feed => this.updateFeed(feed))
+        );
+      }
     } catch (error) {
-      console.error('Connection test failed:', error);
+      console.error('Failed to refresh feeds:', error);
+      throw error;
+    }
+  }
+
+  isValidUrl(url: string): boolean {
+    try {
+      new URL(this.normalizeUrl(url));
+      return true;
+    } catch {
       return false;
     }
-  }
-
-  async searchFeedsByUrl(query: string): Promise<string[]> {
-    // This could be enhanced to discover feeds from websites
-    const possibleUrls = [
-      `${query}/feed`,
-      `${query}/rss`,
-      `${query}/feed.xml`,
-      `${query}/rss.xml`,
-      `${query}/index.xml`,
-    ];
-    
-    const validUrls: string[] = [];
-    
-    for (const url of possibleUrls) {
-      try {
-        const validation = await this.validateFeedUrl(url);
-        if (validation.isValid) {
-          validUrls.push(url);
-        }
-      } catch (error) {
-        // Ignore validation errors for discovery
-      }
-    }
-    
-    return validUrls;
   }
 }
 

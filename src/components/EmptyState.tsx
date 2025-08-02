@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import styled from 'styled-components';
 import { useAppContext } from '@/context/AppContext';
 
 interface EmptyStateProps {
@@ -19,64 +19,67 @@ export function EmptyState({
 }: EmptyStateProps): JSX.Element {
   const { theme } = useAppContext();
 
-  const styles = createStyles(theme);
-
   return (
-    <View style={styles.container}>
-      <Text style={styles.icon}>{icon}</Text>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.message}>{message}</Text>
+    <Container theme={theme}>
+      <Icon>{icon}</Icon>
+      <Title theme={theme}>{title}</Title>
+      <Message theme={theme}>{message}</Message>
       
       {buttonText && onButtonPress && (
-        <TouchableOpacity 
-          style={styles.button}
-          onPress={onButtonPress}
-          activeOpacity={0.7}
+        <Button 
+          theme={theme}
+          onClick={onButtonPress}
         >
-          <Text style={styles.buttonText}>{buttonText}</Text>
-        </TouchableOpacity>
+          {buttonText}
+        </Button>
       )}
-    </View>
+    </Container>
   );
 }
 
-function createStyles(theme: any) {
-  return StyleSheet.create({
-    container: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingHorizontal: 40,
-      backgroundColor: theme.colors.background,
-    },
-    icon: {
-      fontSize: 64,
-      marginBottom: 24,
-    },
-    title: {
-      fontSize: 24,
-      fontWeight: 'bold',
-      color: theme.colors.text,
-      marginBottom: 12,
-      textAlign: 'center',
-    },
-    message: {
-      fontSize: 16,
-      color: theme.colors.textSecondary,
-      textAlign: 'center',
-      lineHeight: 22,
-      marginBottom: 32,
-    },
-    button: {
-      backgroundColor: theme.colors.primary,
-      paddingHorizontal: 32,
-      paddingVertical: 12,
-      borderRadius: 8,
-    },
-    buttonText: {
-      color: '#FFFFFF',
-      fontSize: 16,
-      fontWeight: '600',
-    },
-  });
-}
+const Container = styled.div`
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 0 40px;
+  background-color: ${props => props.theme?.colors?.background || '#ffffff'};
+`;
+
+const Icon = styled.div`
+  font-size: 64px;
+  margin-bottom: 24px;
+`;
+
+const Title = styled.h2`
+  font-size: 24px;
+  font-weight: bold;
+  color: ${props => props.theme?.colors?.text || '#000000'};
+  margin: 0 0 12px 0;
+  text-align: center;
+`;
+
+const Message = styled.p`
+  font-size: 16px;
+  color: ${props => props.theme?.colors?.textSecondary || '#6c757d'};
+  text-align: center;
+  line-height: 1.4;
+  margin: 0 0 32px 0;
+`;
+
+const Button = styled.button`
+  background-color: ${props => props.theme?.colors?.primary || '#007AFF'};
+  color: #FFFFFF;
+  font-size: 16px;
+  font-weight: 600;
+  padding: 12px 32px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+
+  &:hover {
+    opacity: 0.8;
+  }
+`;

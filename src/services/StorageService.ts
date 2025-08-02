@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Settings } from '@/types';
 
 const STORAGE_KEYS = {
@@ -12,7 +11,7 @@ class StorageServiceClass {
   async saveSettings(settings: Settings): Promise<void> {
     try {
       const settingsJson = JSON.stringify(settings);
-      await AsyncStorage.setItem(STORAGE_KEYS.SETTINGS, settingsJson);
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, settingsJson);
     } catch (error) {
       console.error('Failed to save settings:', error);
       throw new Error('Failed to save settings');
@@ -21,7 +20,7 @@ class StorageServiceClass {
 
   async getSettings(): Promise<Settings | null> {
     try {
-      const settingsJson = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
+      const settingsJson = localStorage.getItem(STORAGE_KEYS.SETTINGS);
       if (settingsJson) {
         return JSON.parse(settingsJson) as Settings;
       }
@@ -34,7 +33,7 @@ class StorageServiceClass {
 
   async saveLastUpdateTime(timestamp: number): Promise<void> {
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.LAST_UPDATE, timestamp.toString());
+      localStorage.setItem(STORAGE_KEYS.LAST_UPDATE, timestamp.toString());
     } catch (error) {
       console.error('Failed to save last update time:', error);
       throw new Error('Failed to save last update time');
@@ -43,7 +42,7 @@ class StorageServiceClass {
 
   async getLastUpdateTime(): Promise<number | null> {
     try {
-      const timestamp = await AsyncStorage.getItem(STORAGE_KEYS.LAST_UPDATE);
+      const timestamp = localStorage.getItem(STORAGE_KEYS.LAST_UPDATE);
       return timestamp ? parseInt(timestamp, 10) : null;
     } catch (error) {
       console.error('Failed to get last update time:', error);
@@ -53,7 +52,7 @@ class StorageServiceClass {
 
   async setOnboardingCompleted(completed: boolean): Promise<void> {
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETED, completed.toString());
+      localStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETED, completed.toString());
     } catch (error) {
       console.error('Failed to save onboarding status:', error);
       throw new Error('Failed to save onboarding status');
@@ -62,7 +61,7 @@ class StorageServiceClass {
 
   async isOnboardingCompleted(): Promise<boolean> {
     try {
-      const completed = await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_COMPLETED);
+      const completed = localStorage.getItem(STORAGE_KEYS.ONBOARDING_COMPLETED);
       return completed === 'true';
     } catch (error) {
       console.error('Failed to get onboarding status:', error);
@@ -72,7 +71,7 @@ class StorageServiceClass {
 
   async saveCurrentArticleIndex(index: number): Promise<void> {
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.CURRENT_ARTICLE_INDEX, index.toString());
+      localStorage.setItem(STORAGE_KEYS.CURRENT_ARTICLE_INDEX, index.toString());
     } catch (error) {
       console.error('Failed to save current article index:', error);
       throw new Error('Failed to save current article index');
@@ -81,7 +80,7 @@ class StorageServiceClass {
 
   async getCurrentArticleIndex(): Promise<number> {
     try {
-      const index = await AsyncStorage.getItem(STORAGE_KEYS.CURRENT_ARTICLE_INDEX);
+      const index = localStorage.getItem(STORAGE_KEYS.CURRENT_ARTICLE_INDEX);
       return index ? parseInt(index, 10) : 0;
     } catch (error) {
       console.error('Failed to get current article index:', error);
@@ -91,7 +90,9 @@ class StorageServiceClass {
 
   async clearAllData(): Promise<void> {
     try {
-      await AsyncStorage.multiRemove(Object.values(STORAGE_KEYS));
+      Object.values(STORAGE_KEYS).forEach(key => {
+        localStorage.removeItem(key);
+      });
     } catch (error) {
       console.error('Failed to clear all data:', error);
       throw new Error('Failed to clear all data');
@@ -100,12 +101,12 @@ class StorageServiceClass {
 
   async getStorageSize(): Promise<number> {
     try {
-      const keys = await AsyncStorage.getAllKeys();
       let totalSize = 0;
       
-      for (const key of keys) {
-        if (key.startsWith('@swipefeed:')) {
-          const value = await AsyncStorage.getItem(key);
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('@swipefeed:')) {
+          const value = localStorage.getItem(key);
           if (value) {
             totalSize += key.length + value.length;
           }
@@ -121,12 +122,13 @@ class StorageServiceClass {
 
   async exportData(): Promise<string> {
     try {
-      const keys = await AsyncStorage.getAllKeys();
-      const swipeFeedKeys = keys.filter(key => key.startsWith('@swipefeed:'));
       const data: Record<string, string | null> = {};
       
-      for (const key of swipeFeedKeys) {
-        data[key] = await AsyncStorage.getItem(key);
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('@swipefeed:')) {
+          data[key] = localStorage.getItem(key);
+        }
       }
       
       return JSON.stringify(data, null, 2);
@@ -139,15 +141,12 @@ class StorageServiceClass {
   async importData(dataJson: string): Promise<void> {
     try {
       const data = JSON.parse(dataJson) as Record<string, string | null>;
-      const entries: [string, string][] = [];
       
       for (const [key, value] of Object.entries(data)) {
         if (key.startsWith('@swipefeed:') && value !== null) {
-          entries.push([key, value]);
+          localStorage.setItem(key, value);
         }
       }
-      
-      await AsyncStorage.multiSet(entries);
     } catch (error) {
       console.error('Failed to import data:', error);
       throw new Error('Failed to import data');
@@ -156,13 +155,13 @@ class StorageServiceClass {
 
   async debugLogAllData(): Promise<void> {
     try {
-      const keys = await AsyncStorage.getAllKeys();
-      const swipeFeedKeys = keys.filter(key => key.startsWith('@swipefeed:'));
-      
-      console.log('=== SwipeFeed AsyncStorage Data ===');
-      for (const key of swipeFeedKeys) {
-        const value = await AsyncStorage.getItem(key);
-        console.log(`${key}: ${value}`);
+      console.log('=== SwipeFeed localStorage Data ===');
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('@swipefeed:')) {
+          const value = localStorage.getItem(key);
+          console.log(`${key}: ${value}`);
+        }
       }
       console.log('=== End SwipeFeed Data ===');
     } catch (error) {
