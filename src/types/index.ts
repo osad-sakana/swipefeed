@@ -6,6 +6,7 @@ export interface Feed {
   lastUpdated: Date;
   unreadCount: number;
   isActive: boolean;
+  order: number;
 }
 
 export interface Article {
@@ -44,6 +45,7 @@ export type AppAction =
   | { type: 'ADD_FEED'; payload: Feed }
   | { type: 'REMOVE_FEED'; payload: string }
   | { type: 'UPDATE_FEED'; payload: Feed }
+  | { type: 'REORDER_FEEDS'; payload: { from: number; to: number } }
   | { type: 'SET_ARTICLES'; payload: Article[] }
   | { type: 'ADD_ARTICLES'; payload: Article[] }
   | { type: 'MARK_AS_READ'; payload: string }

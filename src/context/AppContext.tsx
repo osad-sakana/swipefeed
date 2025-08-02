@@ -80,6 +80,23 @@ function appReducer(state: AppState, action: AppAction): AppState {
         ),
       };
     
+    case 'REORDER_FEEDS':
+      const { from, to } = action.payload;
+      const reorderedFeeds = [...state.feeds];
+      const [movedFeed] = reorderedFeeds.splice(from, 1);
+      reorderedFeeds.splice(to, 0, movedFeed);
+      
+      // Update order property for all feeds
+      const feedsWithUpdatedOrder = reorderedFeeds.map((feed, index) => ({
+        ...feed,
+        order: index
+      }));
+      
+      return {
+        ...state,
+        feeds: feedsWithUpdatedOrder,
+      };
+    
     case 'SET_ARTICLES':
       const unreadArticles = action.payload.filter(article => !article.isRead && !article.isSkipped);
       return {
@@ -179,6 +196,8 @@ interface AppContextType {
   refreshFeeds: () => Promise<void>;
   addFeed: (url: string) => Promise<void>;
   removeFeed: (feedId: string) => Promise<void>;
+  reorderFeeds: (fromIndex: number, toIndex: number) => Promise<void>;
+  updateFeed: (feed: Feed) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -299,6 +318,9 @@ export function AppProvider({ children }: AppProviderProps): JSX.Element {
         throw new Error(validation.error || 'Invalid RSS feed');
       }
       
+      // Get current max order
+      const maxOrder = state.feeds.length > 0 ? Math.max(...state.feeds.map(f => f.order)) : -1;
+      
       // Create new feed object
       const newFeed: Feed = {
         id: btoa(url).replace(/[^a-zA-Z0-9]/g, '').substring(0, 16),
@@ -308,6 +330,7 @@ export function AppProvider({ children }: AppProviderProps): JSX.Element {
         lastUpdated: new Date(),
         unreadCount: 0,
         isActive: true,
+        order: maxOrder + 1,
       };
       
       // Save feed to database
@@ -343,6 +366,34 @@ export function AppProvider({ children }: AppProviderProps): JSX.Element {
     }
   };
 
+  const reorderFeeds = async (fromIndex: number, toIndex: number): Promise<void> => {
+    try {
+      dispatch({ type: 'REORDER_FEEDS', payload: { from: fromIndex, to: toIndex } });
+      
+      // Update database with new order
+      const reorderedFeeds = [...state.feeds];
+      const [movedFeed] = reorderedFeeds.splice(fromIndex, 1);
+      reorderedFeeds.splice(toIndex, 0, movedFeed);
+      const feedsWithUpdatedOrder = reorderedFeeds.map((feed, index) => ({
+        ...feed,
+        order: index
+      }));
+      
+      await DatabaseService.reorderFeeds(feedsWithUpdatedOrder);
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to reorder feeds' });
+    }
+  };
+
+  const updateFeed = async (updatedFeed: Feed): Promise<void> => {
+    try {
+      await DatabaseService.saveFeed(updatedFeed);
+      dispatch({ type: 'UPDATE_FEED', payload: updatedFeed });
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to update feed' });
+    }
+  };
+
   const contextValue: AppContextType = {
     state,
     dispatch,
@@ -357,6 +408,8 @@ export function AppProvider({ children }: AppProviderProps): JSX.Element {
     refreshFeeds,
     addFeed,
     removeFeed,
+    reorderFeeds,
+    updateFeed,
   };
 
   return (

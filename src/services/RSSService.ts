@@ -18,7 +18,7 @@ interface ParsedItem {
 }
 
 class RSSServiceClass {
-  private readonly TIMEOUT = 10000; // 10 seconds
+  private readonly TIMEOUT = 8000; // 8 seconds
 
   constructor() {
     // No initialization needed for native browser APIs
@@ -29,8 +29,23 @@ class RSSServiceClass {
       // Ensure URL has protocol
       const feedUrl = this.normalizeUrl(url);
       
+      // Basic URL validation first
+      if (!this.isValidUrl(feedUrl)) {
+        return {
+          isValid: false,
+          error: '有効なURLではありません',
+        };
+      }
+      
       // Test the URL by fetching and parsing
       const feed = await this.fetchAndParseFeed(feedUrl);
+      
+      if (!feed.items || feed.items.length === 0) {
+        return {
+          isValid: false,
+          error: 'このフィードには記事が含まれていません',
+        };
+      }
       
       return {
         isValid: true,
@@ -39,9 +54,30 @@ class RSSServiceClass {
       };
     } catch (error) {
       console.error('Feed validation error:', error);
+      
+      let errorMessage = 'RSSフィードの検証に失敗しました';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('timeout')) {
+          errorMessage = 'フィードの取得がタイムアウトしました';
+        } else if (error.message.includes('HTTP 404')) {
+          errorMessage = 'フィードが見つかりません (404)';
+        } else if (error.message.includes('HTTP 403')) {
+          errorMessage = 'フィードへのアクセスが拒否されました (403)';
+        } else if (error.message.includes('HTTP 500')) {
+          errorMessage = 'サーバーエラーが発生しました (500)';
+        } else if (error.message.includes('Invalid XML')) {
+          errorMessage = '無効なXML形式です';
+        } else if (error.message.includes('Unsupported feed format')) {
+          errorMessage = 'サポートされていないフィード形式です';
+        } else if (error.message.includes('All proxy attempts failed')) {
+          errorMessage = 'フィードに接続できませんでした。URLを確認してください';
+        }
+      }
+      
       return {
         isValid: false,
-        error: error instanceof Error ? error.message : 'Invalid RSS feed',
+        error: errorMessage,
       };
     }
   }
@@ -81,41 +117,65 @@ class RSSServiceClass {
   }
 
   private async fetchAndParseFeed(url: string): Promise<ParsedFeed> {
-    // Use a CORS proxy for development, or implement a backend proxy in production
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+    // Try multiple CORS proxies for better reliability
+    const proxies = [
+      `https://corsproxy.io/?${encodeURIComponent(url)}`,
+      `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+      `https://proxy.cors.sh/${url}`,
+    ];
     
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.TIMEOUT);
+    let lastError: Error | null = null;
     
-    try {
-      const response = await fetch(proxyUrl, {
-        signal: controller.signal,
-        headers: {
-          'Accept': 'application/rss+xml, application/xml, text/xml',
-        },
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    for (const proxyUrl of proxies) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), this.TIMEOUT);
+        
+        const response = await fetch(proxyUrl, {
+          signal: controller.signal,
+          headers: {
+            'Accept': 'application/rss+xml, application/xml, text/xml',
+            'User-Agent': 'SwipeFeed RSS Reader',
+          },
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        let xmlText: string;
+        
+        // Handle different proxy response formats
+        if (proxyUrl.includes('allorigins.win')) {
+          const data = await response.json();
+          xmlText = data.contents;
+        } else {
+          xmlText = await response.text();
+        }
+        
+        if (!xmlText) {
+          throw new Error('No content received from RSS feed');
+        }
+        
+        return this.parseXML(xmlText);
+        
+      } catch (error) {
+        console.warn(`Proxy ${proxyUrl} failed:`, error);
+        lastError = error instanceof Error ? error : new Error('Unknown error');
+        
+        if (error instanceof Error && error.name === 'AbortError') {
+          lastError = new Error('Request timeout');
+        }
+        
+        // Continue to next proxy
+        continue;
       }
-      
-      const data = await response.json();
-      const xmlText = data.contents;
-      
-      if (!xmlText) {
-        throw new Error('No content received from RSS feed');
-      }
-      
-      return this.parseXML(xmlText);
-    } catch (error) {
-      clearTimeout(timeoutId);
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Request timeout');
-      }
-      throw error;
     }
+    
+    // If all proxies failed, throw the last error
+    throw lastError || new Error('All proxy attempts failed');
   }
 
   private parseXML(xmlText: string): ParsedFeed {

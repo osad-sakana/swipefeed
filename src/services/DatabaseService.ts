@@ -9,6 +9,7 @@ interface FeedRow {
   last_updated: number;
   unread_count: number;
   is_active: boolean;
+  order: number;
 }
 
 interface ArticleRow {
@@ -34,6 +35,18 @@ class SwipeFeedDB extends Dexie {
     this.version(1).stores({
       feeds: 'id, title, url, last_updated, unread_count, is_active',
       articles: 'id, feed_id, title, pub_date, is_read, is_bookmarked, is_skipped'
+    });
+    
+    // Version 2: Add order field to feeds
+    this.version(2).stores({
+      feeds: 'id, title, url, last_updated, unread_count, is_active, order',
+      articles: 'id, feed_id, title, pub_date, is_read, is_bookmarked, is_skipped'
+    }).upgrade(trans => {
+      return trans.table('feeds').toCollection().modify(feed => {
+        if (feed.order === undefined) {
+          feed.order = 0;
+        }
+      });
     });
   }
 }
@@ -65,6 +78,7 @@ class DatabaseServiceClass {
         last_updated: feed.lastUpdated.getTime(),
         unread_count: feed.unreadCount,
         is_active: feed.isActive,
+        order: feed.order,
       });
     } catch (error) {
       console.error('Failed to save feed:', error);
@@ -74,7 +88,7 @@ class DatabaseServiceClass {
 
   async getFeeds(): Promise<Feed[]> {
     try {
-      const feedRows = await this.db.feeds.orderBy('title').toArray();
+      const feedRows = await this.db.feeds.orderBy('order').toArray();
       return feedRows.map(row => ({
         id: row.id,
         title: row.title,
@@ -83,6 +97,7 @@ class DatabaseServiceClass {
         lastUpdated: new Date(row.last_updated),
         unreadCount: row.unread_count,
         isActive: row.is_active,
+        order: row.order || 0,
       }));
     } catch (error) {
       console.error('Failed to get feeds:', error);
@@ -252,6 +267,19 @@ class DatabaseServiceClass {
         .delete();
     } catch (error) {
       console.error('Failed to cleanup old articles:', error);
+      throw error;
+    }
+  }
+
+  async reorderFeeds(feeds: Feed[]): Promise<void> {
+    try {
+      await this.db.transaction('rw', this.db.feeds, async () => {
+        for (let i = 0; i < feeds.length; i++) {
+          await this.db.feeds.update(feeds[i].id, { order: i });
+        }
+      });
+    } catch (error) {
+      console.error('Failed to reorder feeds:', error);
       throw error;
     }
   }
